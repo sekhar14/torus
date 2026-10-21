@@ -72,17 +72,27 @@ working parts of the research, not just the final report:
 
 ## Getting started (about 5 minutes)
 
+You need Python 3.11+ and Claude Code.
+
+**1. Install the `torus` command.** The plugin's hooks and MCP server run it, so this step is
+required:
+
 ```bash
-pip install -e .                       # puts the `torus` command on your PATH
+pip install "git+https://github.com/sekhar14/torus.git@v0.1.0"
+```
+
+**2. Set it up:**
+
+```bash
 torus init --refresh-reference --contact you@example.com   # SEC ticker list (the SEC asks for an email)
 torus graph seed semis                 # optional: a starter semiconductor value chain
 torus doctor                           # check that everything is in order
 ```
 
-Then, in Claude Code:
+**3. Add the plugin in Claude Code:**
 
 ```
-/plugin marketplace add /path/to/torus
+/plugin marketplace add sekhar14/torus
 /plugin install torus@torus
 ```
 
