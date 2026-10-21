@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Chip Notes</title>
+  <entry>
+    <title type="html">NVDA supplier &amp;amp; TSMC capex rises</title>
+    <link rel="alternate" href="https://notes.example.com/capex"/>
+    <link rel="self" href="https://notes.example.com/capex.atom"/>
+    <updated>2025-12-31T12:00:00Z</updated>
+    <summary>Capex guidance raised for 2026.</summary>
+  </entry>
+  <entry>
+    <title>Unrelated macro note</title>
+    <link href="https://notes.example.com/macro"/>
+    <published>2025-12-31T13:00:00+02:00</published>
+    <content type="html">&lt;p&gt;Rates and the dollar.&lt;/p&gt;</content>
+  </entry>
+</feed>

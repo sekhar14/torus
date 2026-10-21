@@ -1,0 +1,20 @@
+{
+  "name": "torus",
+  "displayName": "Torus research memory",
+  "version": "0.1.0",
+  "description": "Persistent research knowledge graph: recalls prior theses and claims when you mention a company, and records new research as you work.",
+  "author": {
+    "name": "Torus contributors"
+  },
+  "license": "Apache-2.0",
+  "keywords": ["research", "knowledge-graph", "memory", "finance", "equities"],
+  "userConfig": {
+    "capture_mode": {
+      "type": "string",
+      "title": "Capture mode",
+      "description": "Who writes research into the graph. balanced: Claude records theses and key claims, a curator fills in the rest after the session. live: Claude records everything as it goes (best quality, more usage). curator: Claude records only theses; the curator extracts the rest (least usage).",
+      "options": ["balanced", "live", "curator"],
+      "default": "balanced"
+    }
+  }
+}

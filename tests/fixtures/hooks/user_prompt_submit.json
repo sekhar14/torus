@@ -1,0 +1,9 @@
+{
+  "session_id": "sess-123",
+  "prompt_id": "6f1c2a7e-0d7b-4f7e-9d1c-3a8f1f5b2c11",
+  "transcript_path": "/home/user/.claude/projects/research/sess-123.jsonl",
+  "cwd": "/home/user/research",
+  "permission_mode": "default",
+  "hook_event_name": "UserPromptSubmit",
+  "prompt": "What's changed for NVDA since my last look? Focus on supply."
+}

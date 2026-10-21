@@ -1,0 +1,17 @@
+{
+  "cik": "1046179",
+  "name": "TAIWAN SEMICONDUCTOR MANUFACTURING CO LTD",
+  "tickers": ["TSM"],
+  "filings": {
+    "recent": {
+      "accessionNumber": ["0001046179-25-000088"],
+      "filingDate": ["2025-12-29"],
+      "acceptanceDateTime": ["2025-12-29T09:15:00.000Z"],
+      "form": ["6-K"],
+      "primaryDocument": ["tsmc-6k-cowos.htm"],
+      "primaryDocDescription": ["CoWoS capacity update"],
+      "items": [""]
+    },
+    "files": []
+  }
+}

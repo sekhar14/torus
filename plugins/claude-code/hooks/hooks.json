@@ -1,0 +1,48 @@
+{
+  "description": "Torus: recall prior research when a prompt mentions a known company, log sources the agent reads, and queue research sessions for distillation.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "torus", "args": ["hook", "session-start"], "timeout": 10 }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "torus", "args": ["hook", "user-prompt-submit"], "timeout": 10 }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "WebFetch|WebSearch|mcp__.*torus.*",
+        "hooks": [
+          { "type": "command", "command": "torus", "args": ["hook", "post-tool-use"], "timeout": 15, "async": true }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "torus", "args": ["hook", "stop"], "timeout": 15, "async": true }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          { "type": "command", "command": "torus", "args": ["hook", "pre-compact"], "timeout": 15 }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          { "type": "command", "command": "torus", "args": ["hook", "session-end"], "timeout": 5 }
+        ]
+      }
+    ]
+  }
+}

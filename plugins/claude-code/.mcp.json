@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "torus": {
+      "command": "torus",
+      "args": ["serve"],
+      "env": {
+        "TORUS_HARNESS": "claude-code",
+        "TORUS_CAPTURE_MODE": "${user_config.capture_mode}"
+      }
+    }
+  }
+}

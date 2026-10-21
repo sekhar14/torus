@@ -1,0 +1,104 @@
+{"text": "What's the bull case for NVDA into earnings?", "expected": ["NVDA"]}
+{"text": "Compare $AMD and $NVDA data-center GPU share", "expected": ["AMD", "NVDA"]}
+{"text": "How exposed is Nvidia to TSMC CoWoS capacity?", "expected": ["NVDA", "TSM"]}
+{"text": "Is Apple still a buy after the iPhone cycle?", "expected": ["AAPL"]}
+{"text": "Summarize MSFT Azure growth last quarter", "expected": ["MSFT"]}
+{"text": "Microsoft vs Alphabet cloud margins", "expected": ["MSFT", "GOOGL"]}
+{"text": "Is Google search share under pressure from AI chatbots?", "expected": ["GOOGL"]}
+{"text": "What did the CEO of Intel say about 18A yields?", "expected": ["INTC"]}
+{"text": "ASML export restrictions and the impact on China revenue", "expected": ["ASML"]}
+{"text": "Check the latest 10-Q for AMZN", "expected": ["AMZN"]}
+{"text": "TSLA delivery numbers vs consensus", "expected": ["TSLA"]}
+{"text": "Write a note on JPM net interest income", "expected": ["JPM"]}
+{"text": "$F and GM EV losses this year", "expected": ["F"]}
+{"text": "What's AT&T's dividend coverage?", "expected": ["T"]}
+{"text": "Is $T a value trap?", "expected": ["T"]}
+{"text": "Visa and Mastercard cross-border volume trends", "expected": ["V", "MA"]}
+{"text": "$V vs $MA: which has better take-rate upside?", "expected": ["V", "MA"]}
+{"text": "AI capex by the CEO in the USA", "expected": []}
+{"text": "IT spending survey results for 2027", "expected": []}
+{"text": "Is NOW a good time to buy semis?", "expected": []}
+{"text": "ON a YoY basis, EPS grew 20%", "expected": []}
+{"text": "ALL of the hyperscalers raised capex", "expected": []}
+{"text": "The FED and CPI print this week", "expected": []}
+{"text": "WHAT IS THE OUTLOOK FOR RATES AND THE DOLLAR", "expected": []}
+{"text": "Target price for the stock after the downgrade", "expected": []}
+{"text": "Shell companies and SPACs are back", "expected": []}
+{"text": "Give me the bear case for $AI", "expected": ["AI"]}
+{"text": "ServiceNow subscription growth vs Salesforce", "expected": ["NOW"]}
+{"text": "Is $NOW expensive at 15x sales?", "expected": ["NOW"]}
+{"text": "ON Semiconductor SiC exposure to EV slowdown", "expected": ["ON"]}
+{"text": "Taiwan Semiconductor Manufacturing capex guidance", "expected": ["TSM"]}
+{"text": "Advanced Micro Devices MI400 roadmap", "expected": ["AMD"]}
+{"text": "How much of Broadcom's revenue is custom ASIC?", "expected": ["AVGO"]}
+{"text": "AVGO and MRVL custom silicon pipelines", "expected": ["AVGO"]}
+{"text": "Micron Technology HBM share vs SK Hynix", "expected": ["MU"]}
+{"text": "MU earnings: what matters for HBM pricing?", "expected": ["MU"]}
+{"text": "QCOM licensing dispute with ARM", "expected": ["QCOM", "ARM"]}
+{"text": "Arm Holdings royalty rate expansion", "expected": ["ARM"]}
+{"text": "Super Micro Computer accounting review status", "expected": ["SMCI"]}
+{"text": "SMCI rack-scale share in Blackwell systems", "expected": ["SMCI"]}
+{"text": "Oracle OCI backlog and RPO growth", "expected": ["ORCL"]}
+{"text": "ORCL debt load to fund data centers", "expected": ["ORCL"]}
+{"text": "Costco membership fee hike impact", "expected": ["COST"]}
+{"text": "COST comps and traffic trends", "expected": ["COST"]}
+{"text": "Coca Cola pricing power in emerging markets", "expected": ["KO"]}
+{"text": "KO vs PEP: which beverage stock is cheaper?", "expected": ["KO", "PEP"]}
+{"text": "Exxon Mobil Pioneer integration synergies", "expected": ["XOM"]}
+{"text": "XOM and CVX buyback capacity at $60 oil", "expected": ["XOM", "CVX"]}
+{"text": "Snowflake consumption trends", "expected": ["SNOW"]}
+{"text": "SNOW net revenue retention", "expected": ["SNOW"]}
+{"text": "Caterpillar dealer inventory and mining demand", "expected": ["CAT"]}
+{"text": "Dell Technologies AI server backlog", "expected": ["DELL"]}
+{"text": "DELL vs SMCI margins on AI servers", "expected": ["DELL", "SMCI"]}
+{"text": "Goldman Sachs Group trading revenue", "expected": ["GS"]}
+{"text": "GS and MS investment banking fees rebound", "expected": ["GS", "MS"]}
+{"text": "Morgan Stanley wealth management net new assets", "expected": ["MS"]}
+{"text": "Berkshire Hathaway cash pile and buybacks", "expected": ["BRK-B"]}
+{"text": "BRK.B vs the S&P 500 over ten years", "expected": ["BRK-B"]}
+{"text": "Is $BRK.B undervalued?", "expected": ["BRK-B"]}
+{"text": "JPMorgan Chase deposit beta", "expected": ["JPM"]}
+{"text": "Eli Lilly GLP-1 supply ramp", "expected": ["LLY"]}
+{"text": "LLY vs NVO obesity market share", "expected": ["LLY", "NVO"]}
+{"text": "Novo Nordisk pricing pressure in the US", "expected": ["NVO"]}
+{"text": "Merck Keytruda patent cliff", "expected": ["MRK"]}
+{"text": "Abbott Laboratories CGM growth", "expected": ["ABT"]}
+{"text": "NFLX ad tier subscriber growth", "expected": ["NFLX"]}
+{"text": "Netflix password sharing crackdown results", "expected": ["NFLX"]}
+{"text": "META capex guide and Llama monetization", "expected": ["META"]}
+{"text": "Facebook ad pricing in Q3", "expected": ["META"]}
+{"text": "Meta Platforms Reality Labs losses", "expected": ["META"]}
+{"text": "TSM monthly revenue for September", "expected": ["TSM"]}
+{"text": "INTC foundry losses and 14A customers", "expected": ["INTC"]}
+{"text": "Intel Corporation board changes", "expected": ["INTC"]}
+{"text": "AAPL services revenue mix", "expected": ["AAPL"]}
+{"text": "nvidia earnings preview", "expected": ["NVDA"]}
+{"text": "what about tsmc's pricing?", "expected": ["TSM"]}
+{"text": "Is the AI trade crowded? Look at NVDA, AVGO and AMD", "expected": ["NVDA", "AVGO", "AMD"]}
+{"text": "Hyperscaler capex: MSFT, GOOGL, AMZN, META", "expected": ["MSFT", "GOOGL", "AMZN", "META"]}
+{"text": "GOOG vs GOOGL share class spread", "expected": ["GOOGL"]}
+{"text": "Alphabet Inc. TPU external sales", "expected": ["GOOGL"]}
+{"text": "How does the Fed cut path affect bank NIM?", "expected": []}
+{"text": "Explain DCF vs EV/EBITDA valuation", "expected": []}
+{"text": "Summarize the FOMC minutes", "expected": []}
+{"text": "What is a good ROIC for a SaaS company?", "expected": []}
+{"text": "Write me a Python script to parse a CSV", "expected": []}
+{"text": "Fix the bug in my React component", "expected": []}
+{"text": "How do GPU and HBM supply chains work?", "expected": []}
+{"text": "IPO pipeline for Q4 looks strong", "expected": []}
+{"text": "Gap between growth and value stocks is widening", "expected": []}
+{"text": "Gap Inc turnaround under the new CEO", "expected": ["GAP"]}
+{"text": "Apple pie recipe for Thanksgiving", "expected": []}
+{"text": "The apple harvest was weak this year", "expected": []}
+{"text": "Should I worry about Tesla Inc margins?", "expected": ["TSLA"]}
+{"text": "Tesla robotaxi launch timeline", "expected": ["TSLA"]}
+{"text": "Ford Motor Co EV division losses", "expected": ["F"]}
+{"text": "Gartner IT spending forecast", "expected": ["IT"]}
+{"text": "C3.ai contract renewals", "expected": ["AI"]}
+{"text": "Allstate catastrophe losses", "expected": ["ALL"]}
+{"text": "Qualcomm handset modem share loss at Apple", "expected": ["QCOM", "AAPL"]}
+{"text": "Did TSMC raise prices on N2 wafers for Apple and Nvidia?", "expected": ["TSM", "AAPL", "NVDA"]}
+{"text": "Update my thesis on $META after the earnings call", "expected": ["META"]}
+{"text": "Recap the 8-K from Intel about the foundry spin-off", "expected": ["INTC"]}
+{"text": "What are the risks to the semis rally into year end?", "expected": []}
+{"text": "Broadcom and Marvell custom accelerator wins", "expected": ["AVGO"]}

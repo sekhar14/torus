@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+dist/
+build/
+*.egg-info/
+*.db
+*.db-wal
+*.db-shm
+
+# Private planning notes (kept locally, not published)
+plan.md

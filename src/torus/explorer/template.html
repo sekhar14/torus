@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Torus Graph Explorer</title>
+<style>
+:root {
+  --bg: #f7f7f5; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #d9d9d4;
+  --entity: #3d6fb6; --entity-research: #1f4f96; --supplies: #3d6fb6; --competes: #9a9a93;
+  --other-rel: #7a7a74; --active: #2f8f5b; --at_risk: #d08a12; --broken: #c0392b;
+  --confirmed: #2c6fbf; --event: #8a6fb0; --alert: #d6362b; --focus: #f2c14e;
+  --shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141413; --panel: #1e1e1c; --ink: #ecebe6; --muted: #9b9a93; --line: #34342f;
+    --entity: #6d9be0; --entity-research: #9cc0f5; --supplies: #6d9be0; --competes: #77766f;
+    --other-rel: #8c8b84; --active: #49b57d; --at_risk: #e7a53a; --broken: #e5604f;
+    --confirmed: #5f9be6; --event: #b393d6; --alert: #ff5a4c; --focus: #f2c14e;
+    --shadow: 0 1px 3px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.3);
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+header { position: fixed; inset: 0 0 auto 0; z-index: 3; display: flex; flex-wrap: wrap;
+  gap: 8px 16px; align-items: center; padding: 10px 16px; background: var(--panel);
+  border-bottom: 1px solid var(--line); }
+header h1 { font-size: 15px; margin: 0; font-weight: 650; letter-spacing: .2px; }
+header .meta { color: var(--muted); font-size: 12px; }
+header .grow { flex: 1; }
+#search { width: 220px; max-width: 60vw; padding: 6px 10px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; }
+.filters { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--muted); }
+.filters label { display: inline-flex; gap: 4px; align-items: center; cursor: pointer; }
+button { font: inherit; font-size: 12px; padding: 5px 10px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+#stage { position: fixed; inset: 0; }
+svg { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+svg.panning { cursor: grabbing; }
+.edge { fill: none; stroke-width: 1.4; }
+.edge.SUPPLIES, .edge.CUSTOMER_OF { stroke: var(--supplies); }
+.edge.COMPETES_WITH { stroke: var(--competes); stroke-dasharray: 5 4; }
+.edge.rel { stroke: var(--other-rel); }
+.edge.starter { opacity: .45; }
+.edge.thesis { stroke: var(--muted); stroke-dasharray: 2 3; stroke-width: 1; }
+.edge.about { stroke: var(--event); stroke-dasharray: 1 3; stroke-width: 1.2; }
+.edge.alert { stroke: var(--alert); stroke-width: 2.6; }
+.node { cursor: pointer; }
+.node text { font-size: 11px; fill: var(--ink); paint-order: stroke; stroke: var(--bg);
+  stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
+.node .shape { stroke: var(--bg); stroke-width: 2; }
+.node.entity .shape { fill: var(--entity); }
+.node.entity.research .shape { fill: var(--entity-research); }
+.node.thesis.active .shape { fill: var(--active); }
+.node.thesis.at_risk .shape { fill: var(--at_risk); }
+.node.thesis.broken .shape { fill: var(--broken); }
+.node.thesis.confirmed .shape { fill: var(--confirmed); }
+.node.event .shape { fill: var(--event); }
+.node.event.alerting .shape { fill: var(--alert); }
+.node.selected .shape { stroke: var(--focus); stroke-width: 4; }
+.node.focus .shape { stroke: var(--focus); stroke-width: 3; }
+.dim { opacity: .12; }
+#panel { position: fixed; z-index: 4; top: 64px; right: 12px; bottom: 12px; width: 380px;
+  max-width: calc(100vw - 24px); overflow: auto; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 12px; box-shadow: var(--shadow); padding: 16px 18px; display: none; }
+#panel.open { display: block; }
+#panel h2 { font-size: 16px; margin: 0 0 4px; padding-right: 28px; }
+#panel h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted);
+  margin: 16px 0 6px; }
+#panel .close { position: absolute; top: 10px; right: 10px; border: 0; background: none;
+  font-size: 18px; color: var(--muted); }
+#panel .sub { color: var(--muted); font-size: 12px; }
+#panel ul { list-style: none; margin: 0; padding: 0; }
+#panel li { padding: 6px 0; border-bottom: 1px solid var(--line); }
+#panel li:last-child { border-bottom: 0; }
+#panel a { color: var(--entity); word-break: break-all; }
+.pill { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 99px;
+  background: var(--bg); border: 1px solid var(--line); color: var(--muted); margin-right: 4px; }
+.pill.active { color: var(--active); border-color: var(--active); }
+.pill.at_risk { color: var(--at_risk); border-color: var(--at_risk); }
+.pill.broken { color: var(--broken); border-color: var(--broken); }
+.pill.open { color: var(--alert); border-color: var(--alert); }
+.link-row { cursor: pointer; }
+.link-row:hover { color: var(--entity); }
+#legend { position: fixed; z-index: 2; left: 12px; bottom: 12px; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; font-size: 11px;
+  color: var(--muted); box-shadow: var(--shadow); }
+#legend div { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
+#legend svg { width: 28px; height: 12px; }
+#tip { position: fixed; z-index: 5; pointer-events: none; background: var(--panel); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; font-size: 12px;
+  box-shadow: var(--shadow); display: none; max-width: 320px; }
+#empty { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+  color: var(--muted); text-align: center; padding: 24px; }
+@media (max-width: 640px) {
+  #legend { display: none; }
+  #panel { top: auto; height: 55vh; left: 12px; width: auto; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Torus graph</h1>
+  <span class="meta" id="meta"></span>
+  <span class="grow"></span>
+  <input id="search" type="search" placeholder="Find a company or thesis…" list="names" autocomplete="off">
+  <datalist id="names"></datalist>
+  <div class="filters">
+    <label><input type="checkbox" id="f-theses" checked> theses</label>
+    <label><input type="checkbox" id="f-events" checked> events</label>
+    <label><input type="checkbox" id="f-competes" checked> competitors</label>
+    <label><input type="checkbox" id="f-starter" checked> starter links</label>
+  </div>
+  <button id="fit" type="button">Fit</button>
+</header>
+<div id="stage"><svg id="svg" aria-label="Research graph"><defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7"
+    orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="context-stroke"></path></marker>
+</defs><g id="viewport"><g id="edges"></g><g id="nodes"></g></g></svg></div>
+<aside id="panel" aria-live="polite"><button class="close" id="close" aria-label="Close">×</button><div id="panel-body"></div></aside>
+<div id="legend">
+  <div><svg><circle cx="6" cy="6" r="5" fill="var(--entity-research)"></circle></svg>company (with research)</div>
+  <div><svg><rect x="1" y="1" width="10" height="10" rx="2" fill="var(--active)"></rect></svg>thesis: active / at risk / broken</div>
+  <div><svg><path d="M6 1 L11 6 L6 11 L1 6 z" fill="var(--event)"></path></svg>event (red: open alert)</div>
+  <div><svg><line x1="0" y1="6" x2="28" y2="6" stroke="var(--supplies)" stroke-width="2"></line></svg>supplies</div>
+  <div><svg><line x1="0" y1="6" x2="28" y2="6" stroke="var(--competes)" stroke-width="2" stroke-dasharray="5 4"></line></svg>competes with</div>
+  <div><svg><line x1="0" y1="6" x2="28" y2="6" stroke="var(--alert)" stroke-width="3"></line></svg>alert on a thesis</div>
+</div>
+<div id="tip"></div>
+<div id="empty">The graph is empty.<br>Research a company in Claude Code, or run <code>torus graph seed semis</code>, then <code>torus explore</code> again.</div>
+<script id="torus-data" type="application/json">__TORUS_DATA__</script>
+<script>
+(() => {
+  "use strict";
+  const DATA = JSON.parse(document.getElementById("torus-data").textContent);
+  const NS = "http://www.w3.org/2000/svg";
+  const $ = (id) => document.getElementById(id);
+  const svg = $("svg"), viewport = $("viewport"), gEdges = $("edges"), gNodes = $("nodes");
+  const tipEl = $("tip");
+  let view = { x: 0, y: 0, s: 1 };
+  let userMoved = false;   // once the user pans or zooms, stop auto-fitting
+
+  // ---- model ------------------------------------------------------------
+  const nodes = DATA.nodes.map((n) => ({ ...n, x: 0, y: 0, vx: 0, vy: 0, fixed: false, degree: 0 }));
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const edges = DATA.edges.filter((e) => byId.has(e.source) && byId.has(e.target))
+    .map((e) => ({ ...e, s: byId.get(e.source), t: byId.get(e.target) }));
+  edges.forEach((e) => { e.s.degree++; e.t.degree++; });
+  const isRel = (e) => e.kind === e.kind.toUpperCase();
+  const researched = new Set(edges.filter((e) => e.s.kind === "thesis").map((e) => e.target));
+  Object.entries(DATA.details).forEach(([id, d]) => {
+    if (d && d.claims && d.claims.length && byId.get(id)?.kind === "entity") researched.add(id);
+  });
+  const neighbours = new Map(nodes.map((n) => [n.id, new Set()]));
+  edges.forEach((e) => { neighbours.get(e.source).add(e.target); neighbours.get(e.target).add(e.source); });
+
+  // ---- header -------------------------------------------------------------
+  const m = DATA.meta;
+  $("meta").textContent = `${m.counts.entity} companies · ${m.links} links · ${m.counts.thesis} theses`
+    + ` · ${m.counts.event} events · ${m.open_alerts} open alerts`
+    + (m.focus.length ? ` · around ${m.focus.join(", ")}` : "")
+    + ` · ${m.generated_at.replace("T", " ")}`;
+  const names = $("names");
+  nodes.filter((n) => n.kind !== "event").forEach((n) => {
+    const o = document.createElement("option"); o.value = n.label; names.appendChild(o);
+  });
+  if (!nodes.length) { $("empty").style.display = "flex"; $("legend").style.display = "none"; }
+
+  // ---- drawing ------------------------------------------------------------
+  const el = (tag, attrs) => {
+    const e = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs || {})) e.setAttribute(k, v);
+    return e;
+  };
+  const radius = (n) => n.kind === "entity" ? 6 + Math.min(10, Math.sqrt(n.degree) * 2.4)
+    : n.kind === "thesis" ? 9 : 7;
+
+  edges.forEach((e) => {
+    const cls = ["edge"];
+    if (isRel(e)) {
+      cls.push(e.kind === "SUPPLIES" || e.kind === "CUSTOMER_OF" || e.kind === "COMPETES_WITH" ? e.kind : "rel");
+      if ((e.provenance || "").startsWith("starter:")) cls.push("starter");
+    } else cls.push(e.kind === "about" ? "about" : e.kind === "alert" ? "alert" : "thesis");
+    e.el = el("path", { class: cls.join(" ") });
+    if (isRel(e) && e.kind !== "COMPETES_WITH") e.el.setAttribute("marker-end", "url(#arrow)");
+    e.el.addEventListener("mouseenter", (ev) => tip(ev, edgeText(e)));
+    e.el.addEventListener("mouseleave", hideTip);
+    gEdges.appendChild(e.el);
+  });
+
+  nodes.forEach((n) => {
+    const cls = ["node", n.kind];
+    if (n.kind === "thesis") cls.push(n.data.status);
+    if (n.kind === "event" && n.data.has_open_alert) cls.push("alerting");
+    if (n.kind === "entity" && researched.has(n.id)) cls.push("research");
+    if (n.kind === "entity" && n.data.hops === 0) cls.push("focus");
+    n.el = el("g", { class: cls.join(" "), tabindex: "0", role: "button" });
+    const r = radius(n);
+    const shape = n.kind === "entity" ? el("circle", { r, class: "shape" })
+      : n.kind === "thesis" ? el("rect", { x: -r, y: -r, width: 2 * r, height: 2 * r, rx: 3, class: "shape" })
+      : el("path", { d: `M0 ${-r} L${r} 0 L0 ${r} L${-r} 0 Z`, class: "shape" });
+    const label = el("text", { x: r + 4, y: 4 });
+    label.textContent = n.label.length > 42 ? n.label.slice(0, 40) + "…" : n.label;
+    n.el.append(shape, label);
+    n.el.addEventListener("mouseenter", (ev) => tip(ev, n.label));
+    n.el.addEventListener("mouseleave", hideTip);
+    n.el.addEventListener("keydown", (ev) => { if (ev.key === "Enter") select(n); });
+    gNodes.appendChild(n.el);
+  });
+
+  function edgeText(e) {
+    if (isRel(e)) return `${e.s.label} ${e.label} ${e.t.label} · ${Math.round((e.confidence || 0) * 100)}%`
+      + (e.provenance ? ` · ${e.provenance}` : "");
+    return `${e.s.label} → ${e.t.label} (${e.label})`;
+  }
+
+  // ---- layout: force simulation ---------------------------------------------
+  const W = () => svg.clientWidth || 1000, H = () => svg.clientHeight || 700;
+  nodes.forEach((n, i) => {
+    const a = (i / Math.max(1, nodes.length)) * Math.PI * 2;
+    const ring = n.kind === "entity" ? 260 : 360;
+    n.x = Math.cos(a) * ring + (Math.random() - .5) * 40;
+    n.y = Math.sin(a) * ring + (Math.random() - .5) * 40;
+  });
+  let alpha = 1;
+  function tick() {
+    const k = 0.07 * alpha;
+    for (let i = 0; i < nodes.length; i++) {
+      const a = nodes[i]; if (a.hidden) continue;
+      for (let j = i + 1; j < nodes.length; j++) {
+        const b = nodes[j]; if (b.hidden) continue;
+        let dx = a.x - b.x, dy = a.y - b.y, d2 = dx * dx + dy * dy || 0.01;
+        if (d2 > 360000) continue;
+        const f = 6000 / d2;
+        const d = Math.sqrt(d2); dx /= d; dy /= d;
+        a.vx += dx * f; a.vy += dy * f; b.vx -= dx * f; b.vy -= dy * f;
+      }
+    }
+    for (const e of edges) {
+      if (e.hidden) continue;
+      const want = isRel(e) ? 150 : 80;
+      const dx = e.t.x - e.s.x, dy = e.t.y - e.s.y, d = Math.sqrt(dx * dx + dy * dy) || 1;
+      const f = (d - want) * 0.04;
+      const fx = (dx / d) * f, fy = (dy / d) * f;
+      e.s.vx += fx; e.s.vy += fy; e.t.vx -= fx; e.t.vy -= fy;
+    }
+    for (const n of nodes) {
+      if (n.fixed || n.hidden) { n.vx = n.vy = 0; continue; }
+      n.vx -= n.x * 0.003; n.vy -= n.y * 0.003;   // gentle pull to the centre
+      n.x += Math.max(-30, Math.min(30, n.vx * k * 10));
+      n.y += Math.max(-30, Math.min(30, n.vy * k * 10));
+      n.vx *= 0.55; n.vy *= 0.55;
+    }
+    alpha *= 0.985;
+  }
+  function draw() {
+    for (const e of edges) {
+      if (e.hidden) { e.el.style.display = "none"; continue; }
+      e.el.style.display = "";
+      const dx = e.t.x - e.s.x, dy = e.t.y - e.s.y, d = Math.sqrt(dx * dx + dy * dy) || 1;
+      const rt = radius(e.t) + 3, rs = radius(e.s);
+      const x1 = e.s.x + (dx / d) * rs, y1 = e.s.y + (dy / d) * rs;
+      const x2 = e.t.x - (dx / d) * rt, y2 = e.t.y - (dy / d) * rt;
+      e.el.setAttribute("d", `M${x1.toFixed(1)},${y1.toFixed(1)} L${x2.toFixed(1)},${y2.toFixed(1)}`);
+    }
+    for (const n of nodes) {
+      n.el.style.display = n.hidden ? "none" : "";
+      n.el.setAttribute("transform", `translate(${n.x.toFixed(1)},${n.y.toFixed(1)})`);
+    }
+  }
+  let running = false;
+  function run() {
+    for (let i = 0; i < 3 && alpha > 0.02; i++) tick();
+    draw();
+    if (alpha > 0.02) requestAnimationFrame(run);
+    else { running = false; if (!userMoved) fit(); }
+  }
+  function kick(minAlpha) {
+    alpha = Math.max(alpha, minAlpha);
+    if (!running) { running = true; requestAnimationFrame(run); }
+  }
+
+  // ---- pan, zoom, drag ------------------------------------------------------------
+  const applyView = () => viewport.setAttribute("transform", `translate(${view.x},${view.y}) scale(${view.s})`);
+  function fit() {
+    const vis = nodes.filter((n) => !n.hidden);
+    if (!vis.length) return;
+    const xs = vis.map((n) => n.x), ys = vis.map((n) => n.y);
+    const minX = Math.min(...xs) - 60, maxX = Math.max(...xs) + 200;
+    const minY = Math.min(...ys) - 60, maxY = Math.max(...ys) + 60;
+    const top = 64;
+    view.s = Math.min(2, Math.max(0.2, Math.min(W() / (maxX - minX), (H() - top) / (maxY - minY))));
+    view.x = (W() - (maxX - minX) * view.s) / 2 - minX * view.s;
+    view.y = top + (H() - top - (maxY - minY) * view.s) / 2 - minY * view.s;
+    applyView();
+  }
+  const toGraph = (cx, cy) => ({ x: (cx - view.x) / view.s, y: (cy - view.y) / view.s });
+  let drag = null, pan = null, moved = false;
+  svg.addEventListener("pointerdown", (ev) => {
+    moved = false;
+    const g = ev.target.closest(".node");
+    if (g) {
+      const n = nodes.find((x) => x.el === g);
+      drag = n; n.fixed = true; svg.setPointerCapture(ev.pointerId);
+    } else {
+      pan = { x: ev.clientX - view.x, y: ev.clientY - view.y }; svg.classList.add("panning");
+      svg.setPointerCapture(ev.pointerId);
+    }
+  });
+  svg.addEventListener("pointermove", (ev) => {
+    if (drag) {
+      const p = toGraph(ev.clientX, ev.clientY); drag.x = p.x; drag.y = p.y; moved = true;
+      userMoved = true; draw(); kick(0.3);
+    } else if (pan) {
+      view.x = ev.clientX - pan.x; view.y = ev.clientY - pan.y; moved = true;
+      userMoved = true; applyView();
+    }
+  });
+  svg.addEventListener("pointerup", (ev) => {
+    if (drag && !moved) select(drag);
+    else if (!drag && !moved && !ev.target.closest(".node")) clearSelection();
+    drag = null; pan = null; svg.classList.remove("panning");
+  });
+  svg.addEventListener("dblclick", (ev) => {
+    const g = ev.target.closest(".node");
+    if (g) { const n = nodes.find((x) => x.el === g); n.fixed = false; kick(0.3); }
+  });
+  svg.addEventListener("wheel", (ev) => {
+    ev.preventDefault();
+    userMoved = true;
+    const f = Math.exp(-ev.deltaY * 0.0015), p = toGraph(ev.clientX, ev.clientY);
+    view.s = Math.min(4, Math.max(0.15, view.s * f));
+    view.x = ev.clientX - p.x * view.s; view.y = ev.clientY - p.y * view.s; applyView();
+  }, { passive: false });
+  $("fit").addEventListener("click", () => { userMoved = false; fit(); });
+  window.addEventListener("resize", () => { if (!userMoved) fit(); });
+
+  // Settle most of the layout before the first paint, then animate the rest.
+  for (let i = 0; i < 300 && alpha > 0.05; i++) tick();
+  draw(); fit(); kick(alpha);
+
+  // ---- filters ------------------------------------------------------------
+  function applyFilters() {
+    const showTheses = $("f-theses").checked, showEvents = $("f-events").checked;
+    const showCompetes = $("f-competes").checked, showStarter = $("f-starter").checked;
+    nodes.forEach((n) => {
+      n.hidden = (n.kind === "thesis" && !showTheses) || (n.kind === "event" && !showEvents);
+    });
+    edges.forEach((e) => {
+      e.hidden = e.s.hidden || e.t.hidden
+        || (e.kind === "COMPETES_WITH" && !showCompetes)
+        || ((e.provenance || "").startsWith("starter:") && !showStarter);
+    });
+    draw(); kick(0.3);
+  }
+  ["f-theses", "f-events", "f-competes", "f-starter"].forEach((id) => $(id).addEventListener("change", applyFilters));
+
+  // ---- selection & details panel ------------------------------------------------
+  let selected = null;
+  function select(n) {
+    selected = n;
+    const near = neighbours.get(n.id);
+    nodes.forEach((x) => {
+      x.el.classList.toggle("selected", x === n);
+      x.el.classList.toggle("dim", x !== n && !near.has(x.id));
+    });
+    edges.forEach((e) => e.el.classList.toggle("dim", e.s !== n && e.t !== n));
+    showPanel(n);
+    // Keep the selected node visible to the left of the details panel.
+    const panelWidth = window.innerWidth > 640 ? 400 : 0;
+    const sx = n.x * view.s + view.x;
+    if (sx > W() - panelWidth - 60 || sx < 40) {
+      view.x = (W() - panelWidth) / 2 - n.x * view.s;
+      userMoved = true; applyView();
+    }
+  }
+  function clearSelection() {
+    selected = null;
+    nodes.forEach((x) => x.el.classList.remove("selected", "dim"));
+    edges.forEach((e) => e.el.classList.remove("dim"));
+    $("panel").classList.remove("open");
+  }
+  $("close").addEventListener("click", clearSelection);
+  document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") clearSelection(); });
+
+  function h(tag, text, cls) {
+    const e = document.createElement(tag);
+    if (text !== undefined && text !== null) e.textContent = String(text);
+    if (cls) e.className = cls;
+    return e;
+  }
+  function link(uri, text) {
+    if (!uri || !/^https?:\/\//i.test(uri)) return h("span", text || uri || "");
+    const a = h("a", text || uri); a.href = uri; a.target = "_blank"; a.rel = "noopener noreferrer";
+    return a;
+  }
+  const pct = (x) => x === null || x === undefined ? "" : `${Math.round(x * 100)}%`;
+  const day = (s) => (s || "").slice(0, 10);
+  function section(body, title, items, render) {
+    if (!items || !items.length) return;
+    body.appendChild(h("h3", title));
+    const ul = h("ul"); items.forEach((it) => ul.appendChild(render(it))); body.appendChild(ul);
+  }
+  function evidenceList(li, evidence) {
+    (evidence || []).forEach((ev) => {
+      const div = h("div", null, "sub"); div.append("source: ", link(ev.uri, ev.title || ev.uri));
+      li.appendChild(div);
+    });
+  }
+
+  function showPanel(n) {
+    const body = $("panel-body"); body.replaceChildren();
+    const d = DATA.details[n.id] || {};
+    if (n.kind === "entity") {
+      body.append(h("h2", n.label), h("div", [d.canonical_key, ...(n.data.tickers || [])].filter(Boolean).join(" · "), "sub"));
+      if (d.aliases && d.aliases.length) body.appendChild(h("div", "also: " + d.aliases.join(", "), "sub"));
+      const rels = edges.filter((e) => isRel(e) && (e.s === n || e.t === n));
+      section(body, `Links (${rels.length})`, rels, (e) => {
+        const li = h("li", null, "link-row");
+        const other = e.s === n ? e.t : e.s;
+        li.append(h("span", e.s === n ? `${e.label} → ` : `← ${e.label} `), h("strong", other.label));
+        li.appendChild(h("div", `${pct(e.confidence)} · ${e.provenance || ""}`, "sub"));
+        li.addEventListener("click", () => select(other));
+        return li;
+      });
+      const theses = edges.filter((e) => e.t === n && e.s.kind === "thesis").map((e) => e.s);
+      section(body, "Theses", theses, (t) => {
+        const li = h("li", null, "link-row");
+        li.append(h("span", t.data.status.replace("_", " "), `pill ${t.data.status}`), h("span", t.label));
+        li.addEventListener("click", () => select(t));
+        return li;
+      });
+      section(body, "Recent claims", d.claims, (c) => {
+        const li = h("li");
+        li.append(h("span", c.type, "pill"), h("span", c.text));
+        li.appendChild(h("div", `${pct(c.confidence)} · recorded ${day(c.recorded_at)}`, "sub"));
+        evidenceList(li, c.evidence);
+        return li;
+      });
+      section(body, "Ruled out", d.rejected, (r) => {
+        const li = h("li"); li.append(h("div", r.text), h("div", "because: " + r.reason, "sub")); return li;
+      });
+    } else if (n.kind === "thesis") {
+      body.append(h("h2", d.title || n.label));
+      const tags = h("div");
+      tags.append(h("span", (d.status || "").replace("_", " "), `pill ${d.status}`), h("span", d.stance, "pill"),
+        h("span", "confidence " + pct(d.confidence), "pill"));
+      if (d.horizon) tags.appendChild(h("span", d.horizon, "pill"));
+      body.append(tags, h("p", d.statement));
+      if (d.subject) body.appendChild(h("div", "subject: " + d.subject, "sub"));
+      section(body, "Alerts", d.alerts, (a) => {
+        const li = h("li");
+        li.append(h("span", a.status === "open" ? "open" : (a.verdict || a.status), `pill ${a.status}`),
+          link(a.uri, a.event));
+        li.appendChild(h("div", `${day(a.occurred_at)} · score ${a.score.toFixed(2)}`, "sub"));
+        (a.paths || []).forEach((p) => li.appendChild(h("div", "why: " + p, "sub")));
+        return li;
+      });
+      section(body, "Rests on", d.claims, (c) => {
+        const li = h("li"); li.append(h("span", c.role, "pill"), h("span", c.text));
+        if (c.confidence !== null) li.appendChild(h("div", pct(c.confidence), "sub"));
+        evidenceList(li, c.evidence);
+        return li;
+      });
+      section(body, "Watching for", d.triggers, (t) => {
+        const li = h("li"); li.append(h("div", t.description));
+        if (t.entity) li.appendChild(h("div", "on " + t.entity, "sub"));
+        return li;
+      });
+      section(body, "History", [...(d.history || [])].reverse(), (x) => {
+        const li = h("li");
+        li.append(h("span", x.status.replace("_", " "), `pill ${x.status}`), h("span", pct(x.confidence)));
+        li.appendChild(h("div", `${day(x.at)} · ${x.reason || ""}`, "sub"));
+        return li;
+      });
+    } else {
+      body.append(h("h2", d.title || n.label),
+        h("div", `${d.kind} · ${day(d.occurred_at)} · ${d.source}`, "sub"));
+      if (d.uri) { const p = h("p"); p.appendChild(link(d.uri)); body.appendChild(p); }
+      if (d.summary) body.appendChild(h("p", d.summary));
+      if (d.entities) body.appendChild(h("div", "about: " + d.entities.join(", "), "sub"));
+      const alerts = edges.filter((e) => e.s === n && e.kind === "alert");
+      section(body, "Alerts", alerts, (e) => {
+        const li = h("li", null, "link-row"); li.append(h("span", e.label, "pill open"), h("span", e.t.label));
+        li.addEventListener("click", () => select(e.t)); return li;
+      });
+    }
+    $("panel").classList.add("open");
+  }
+
+  // ---- search ---------------------------------------------------------------
+  $("search").addEventListener("change", () => {
+    const q = $("search").value.trim().toLowerCase();
+    if (!q) return;
+    const hit = nodes.find((n) => n.label.toLowerCase() === q)
+      || nodes.find((n) => n.label.toLowerCase().includes(q))
+      || nodes.find((n) => (n.data.tickers || []).some((t) => t.toLowerCase() === q));
+    if (hit) {
+      hit.hidden = false; select(hit);
+      view.x = W() / 2 - hit.x * view.s; view.y = H() / 2 - hit.y * view.s; applyView();
+    }
+  });
+
+  // ---- tooltip ----------------------------------------------------------------
+  function tip(ev, text) {
+    tipEl.textContent = text; tipEl.style.display = "block";
+    tipEl.style.left = `${ev.clientX + 12}px`; tipEl.style.top = `${ev.clientY + 12}px`;
+  }
+  function hideTip() { tipEl.style.display = "none"; }
+
+  window.torusExplorer = { nodes, edges, select, fit };   // for debugging and tests
+})();
+</script>
+</body>
+</html>

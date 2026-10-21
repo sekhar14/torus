@@ -1,0 +1,11 @@
+{
+  "session_id": "sess-123",
+  "transcript_path": "/home/user/.claude/projects/research/sess-123.jsonl",
+  "cwd": "/home/user/research",
+  "permission_mode": "default",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "mcp__plugin_torus_torus__record_claim",
+  "tool_input": {"text": "Blackwell ramp ahead of plan", "claim_type": "fact", "confidence": 0.8},
+  "tool_response": {"id": "01CLAIM", "text": "Blackwell ramp ahead of plan"},
+  "tool_use_id": "toolu_01DEF"
+}

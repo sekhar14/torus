@@ -1,0 +1,50 @@
+[project]
+name = "torus-kg"
+version = "0.1.0"
+description = "Persistent research knowledge graph for AI agents (Claude Code, Codex, ...)"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.7,<3",
+    "mcp>=2.3,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "hypothesis>=6.100",
+    "ruff>=0.6",
+    "mypy>=1.11",
+]
+
+[project.scripts]
+torus = "torus.cli:main"
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/torus"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers -m 'not perf'"
+markers = [
+    "perf: performance tests (run nightly / before release)",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["src/torus"]
+plugins = ["pydantic.mypy"]
+strict = true
