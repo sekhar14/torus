@@ -90,3 +90,11 @@ def test_empty_graph_renders(store: SQLiteBackend, clock: ManualClock) -> None:
     data = build_data(store, clock=clock)
     assert data["nodes"] == [] and data["edges"] == []
     assert "The graph is empty" in render(data)
+
+
+def test_template_supports_deep_links_and_stable_layout() -> None:
+    from importlib import resources
+
+    template = resources.files("torus.explorer").joinpath("template.html").read_text("utf-8")
+    assert "#select=" in template  # explorer.html#select=NVDA opens with NVDA selected
+    assert "Math.random" not in template  # seeded layout: same graph, same picture

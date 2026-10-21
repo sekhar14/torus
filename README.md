@@ -21,6 +21,55 @@ Torus works out which of your theses it touches and why.
 
 See [CHANGELOG.md](CHANGELOG.md) for what's in each release.
 
+![Torus graph explorer: the semiconductor value chain with an NVIDIA thesis and an alert from a TSMC filing](docs/images/explorer-overview.png)
+
+## How it works
+
+```mermaid
+flowchart TD
+    U(["You ask: Is NVIDIA still supply-bound?"]) --> H1
+
+    subgraph S1 ["1 · Research session in Claude Code"]
+        H1["Prompt hook spots NVIDIA<br/>and recalls past research"] --> C["Claude starts from your earlier<br/>theses, claims and ruled-out ideas"]
+        C --> R["Claude researches:<br/>filings, transcripts, news"]
+        R --> W["Claude records what matters:<br/>evidence · claims · thesis · dead ends"]
+        R -.->|every page it reads| SRC["Tool hook logs the source"]
+    end
+
+    W --> G
+    SRC --> G
+
+    subgraph S2 ["2 · Torus knowledge graph · local SQLite, time-aware"]
+        G[("Companies ⇄ links<br/>supplies · competes · customer of<br/>Claims ← evidence<br/>Theses ← claims they rest on<br/>Full history of every change")]
+    end
+
+    R -->|session ends| Q["Session queued"]
+    Q --> D["/torus:distill<br/>Haiku curator reads the transcript<br/>and adds missed claims, sources and links"]
+    D --> G
+
+    subgraph S3 ["3 · The world changes"]
+        EV["SEC filings and news<br/>torus watch run"] --> I["Impact analysis walks the graph<br/>TSMC → supplies → NVIDIA → your thesis"]
+        I --> A["Alert on the affected thesis,<br/>with the path that explains why"]
+    end
+
+    G --> I
+    A --> RV["/torus:review<br/>Claude judges: supports · weakens · breaks"]
+    RV -->|thesis updated, history kept| G
+    G -->|the next session starts here| H1
+```
+
+**Why this helps.** Research done in chat is usually thrown away: the next session starts from
+scratch, and nothing connects new information to what you already concluded. Torus keeps the
+working parts of the research, not just the final report:
+
+| Without Torus | With Torus |
+|---|---|
+| Every session re-reads the same filings and rediscovers the same facts | Each session starts from earlier theses, claims and ruled-out ideas |
+| A report says "TSMC capacity is the constraint", but not where that came from | Every claim links to its source, with a confidence and the date it was true |
+| A TSMC filing arrives and nobody notices that it undermines your NVIDIA view | Impact analysis follows supplier and customer links and raises an alert on that thesis |
+| Old conclusions get overwritten | Every change is versioned, so you can ask what you believed on any date |
+| Dead ends get explored again | Ruled-out ideas are recalled alongside the theses |
+
 ## Getting started (about 5 minutes)
 
 ```bash
@@ -69,6 +118,13 @@ torus explore --no-open       # write the file without opening a browser
 This writes a single self-contained HTML file (default `~/.torus/explorer.html`) and opens it in
 your browser. It works offline and needs nothing installed, so you can share the file.
 
+![A thesis selected in the explorer: its open alert with the paths that explain it, the claims it rests on with sources, its trigger and history](docs/images/explorer-thesis.png)
+
+*The screenshots use the `semis` starter pack plus illustrative `[demo]` research
+(`scripts/seed_demo.py`). In the one above, the `[demo]` NVIDIA thesis is selected. A TSMC filing
+has raised an alert on it, and the panel shows why: the thesis has a trigger on TSMC, an
+assumption claim that names TSMC, and TSMC supplies NVIDIA, the thesis's subject.*
+
 - **Nodes:** companies are blue circles; darker means you have research on them. Theses are
   squares coloured by status (green active, amber at risk, red broken). Events are diamonds, red
   when they have an open alert.
@@ -82,6 +138,8 @@ your browser. It works offline and needs nothing installed, so you can share the
   reset. Double-click a node to release it.
 - **Search** by name or ticker. **Filters** hide theses, events, competitor links or starter
   links.
+- **Link to a node:** add `#select=` and a name or ticker to the file's address, e.g.
+  `explorer.html#select=NVDA`, and the explorer opens with that node selected.
 
 The file is a snapshot. Run `torus explore` again after new research.
 
