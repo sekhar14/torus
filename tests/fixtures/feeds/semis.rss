@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Semis Wire</title>
+    <link>https://news.example.com/</link>
+    <item>
+      <title>TSMC lifts CoWoS output as AI demand stays hot</title>
+      <link>https://news.example.com/tsmc-cowos-output</link>
+      <pubDate>Tue, 30 Dec 2025 08:00:00 +0000</pubDate>
+      <description>&lt;p&gt;Taiwan's foundry leader is &lt;b&gt;adding&lt;/b&gt; advanced packaging lines.&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>Nvidia shares slip after export-rule chatter</title>
+      <link>https://news.example.com/nvidia-export-chatter</link>
+      <pubDate>Wed, 31 Dec 2025 15:30:00 GMT</pubDate>
+      <description>Traders weigh new rules for $NVDA.</description>
+    </item>
+    <item>
+      <title>Coffee prices hit a record</title>
+      <link>https://news.example.com/coffee</link>
+      <pubDate>Wed, 31 Dec 2025 16:00:00 GMT</pubDate>
+      <description>Nothing to do with chips.</description>
+    </item>
+    <item>
+      <title>TSMC opens Arizona fab tour</title>
+      <link>https://news.example.com/old-tsmc</link>
+      <pubDate>Mon, 01 Dec 2025 10:00:00 GMT</pubDate>
+      <description>An old story.</description>
+    </item>
+  </channel>
+</rss>

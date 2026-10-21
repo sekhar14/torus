@@ -1,0 +1,16 @@
+{
+  "name": "torus",
+  "description": "Torus: a persistent research knowledge graph for AI agents.",
+  "owner": {
+    "name": "Torus contributors"
+  },
+  "plugins": [
+    {
+      "name": "torus",
+      "source": "./plugins/claude-code",
+      "description": "Recalls prior research when you mention a company and records new theses, claims and evidence as you work.",
+      "category": "research",
+      "tags": ["research", "knowledge-graph", "memory", "finance"]
+    }
+  ]
+}
