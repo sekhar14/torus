@@ -1,8 +1,10 @@
 # Torus
 
-**Stock research memory for Claude Code, Claude Desktop and Codex.** Torus remembers your equity research across
-sessions (the companies, the sourced facts, your investment theses) and warns you when a new
-SEC filing or news story threatens one of them.
+**Stock research memory for Claude Code, Claude Desktop and Codex.** Torus gives Claude a
+memory for your equity research. Before it answers, Claude sees what you already know about a
+company: your theses, the sourced facts behind them, its suppliers, customers and competitors,
+and the ideas you ruled out. New research builds on the old, and every new fact is saved with
+its source. When a new SEC filing or news story threatens a thesis, Torus warns you.
 
 ![Torus graph explorer: the semiconductor value chain with NVIDIA, Micron and AMD theses, an alert from a TSMC filing, and the time slider](docs/images/explorer-overview.png)
 
