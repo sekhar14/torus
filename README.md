@@ -1,6 +1,6 @@
 # Torus
 
-**Stock research memory for Claude Code.** Torus remembers your equity research across
+**Stock research memory for Claude Code, Claude Desktop and Codex.** Torus remembers your equity research across
 sessions (the companies, the sourced facts, your investment theses) and warns you when a new
 SEC filing or news story threatens one of them.
 
@@ -31,51 +31,51 @@ Built for analysts, portfolio managers and serious individual investors.
 *Torus is a research memory, not financial advice.* See [CHANGELOG.md](CHANGELOG.md) for what's
 in each release.
 
+## Pick your app
+
+Torus works in three apps. All of them share one graph on your machine, so you can research in
+one and pick up in another.
+
+| | Claude Desktop | Codex (desktop app and CLI) | Claude Code |
+|---|---|---|---|
+| Prior research recalled before Claude answers | Yes (`brief`, prompted by the server's instructions) | Yes (`brief`, prompted by the server's instructions) | Yes, automatically on every prompt (hook) |
+| Sources and claims recorded while researching | Yes (live capture) | Yes (live capture) | Yes (balanced capture, curator fills gaps) |
+| "Torus recorded ..." receipt after each turn | Yes | Yes | Yes |
+| Workflows: onboard, review alerts, challenge, memo... | Prompts in the "+" menu | Torus skills | `/torus:` commands |
+| Filing and news alerts, audit, scorecard, memos, explorer | Yes | Yes | Yes |
+| Background Haiku subagents (mapper, curator, challenger) | No: the same steps run in the chat | No: the same steps run in the chat | Yes |
+
+**Claude Desktop**
+
+```bash
+pip install "git+https://github.com/sekhar14/torus.git@v0.3.0"
+torus setup
+```
+
+`torus setup` asks for the email the SEC requires, downloads the SEC ticker list, adds Torus to
+Claude Desktop's settings (it keeps a `.bak` copy and leaves your other servers alone), and
+schedules the filing watchers. Restart Claude Desktop, then try the **Onboard companies** prompt
+from the "+" menu with a few tickers.
+
+**Codex**
+
+The same two commands. `torus setup` adds `[mcp_servers.torus]` to `~/.codex/config.toml` (or
+`$CODEX_HOME`) and installs the Torus skills (`torus-research`, `torus-onboard`, `torus-review`
+and so on) under `~/.codex/skills`. If you already wrote a `[mcp_servers.torus]` entry yourself,
+setup leaves it as it is. Restart Codex, then ask it to onboard your tickers.
+
+**Claude Code**
+
+See [Getting started](#getting-started-about-5-minutes) below. `torus setup` also prints the two
+`/plugin` commands.
+
+`torus setup` configures the apps it finds; pass `--claude-desktop` or `--codex` to configure one
+anyway, or `--no-codex` / `--no-claude-desktop` to skip one. `torus doctor` checks each app's
+entry and that the server starts.
+
 ## How it works
 
-```mermaid
-flowchart TD
-    OB(["/torus:onboard NVDA AMD TSM"]) --> MAP["Haiku mapper reads each 10-K<br/>suppliers · customers · competitors"]
-    MAP --> G
-
-    U(["You ask: Is NVIDIA still supply-bound?"]) --> H1
-
-    subgraph S1 ["1 · Research session in Claude Code"]
-        H1["Prompt hook spots NVIDIA<br/>and recalls past research"] --> C["Claude starts from your earlier<br/>theses, claims and ruled-out ideas"]
-        C --> R["Claude researches:<br/>SEC filings by section, news, transcripts"]
-        R --> W["Claude records what matters:<br/>evidence · claims · thesis · dead ends"]
-        W --> RC["Receipt after each turn<br/>/torus:undo reverts anything"]
-    end
-
-    W --> G
-
-    subgraph S2 ["2 · Torus knowledge graph · local SQLite, time-aware"]
-        G[("Companies ⇄ links<br/>Claims ← evidence<br/>Theses ← claims they rest on<br/>Full history of every change")]
-    end
-
-    R -->|session ends| D["Haiku curator distils the transcript<br/>and adds missed claims, sources, links"]
-    D --> G
-
-    subgraph S3 ["3 · The world changes · torus watch run, on a schedule"]
-        EV["SEC filings and news<br/>10-K/10-Q: what changed in risk factors"] --> I["Impact analysis walks the graph<br/>TSMC → supplies → NVIDIA → your thesis"]
-        I --> SC["Score = graph × materiality × trigger match<br/>routine filings stay quiet"]
-        SC --> A["Alert on the thesis, with the path that explains why"]
-    end
-
-    G --> I
-    A --> RV["/torus:review<br/>Claude judges: supports · weakens · breaks"]
-    RV -->|thesis updated, history kept| G
-
-    subgraph S4 ["4 · Keep it honest"]
-        AU["/torus:audit<br/>stale, thin or conflicting research"]
-        CH["/torus:challenge<br/>a skeptic argues the other side"]
-        SCO["/torus:scorecard<br/>returns, outcomes, calibration"]
-    end
-
-    G --> S4
-    S4 -->|fixes and verdicts| G
-    G -->|the next session starts here| H1
-```
+![How Torus works: you ask about a company; Torus recalls earlier research; Claude researches and records sourced claims and theses in the Torus graph. While you're away, Torus watches new SEC filings and news, raises an alert on the thesis it affects, and you review it.](docs/images/how-it-works.svg)
 
 **Why this helps.** Research done in chat is usually thrown away: the next session starts from
 scratch, and nothing connects new information to what you already concluded. Torus keeps the
@@ -101,7 +101,7 @@ You need Python 3.11+ and Claude Code.
 required:
 
 ```bash
-pip install "git+https://github.com/sekhar14/torus.git@v0.2.1"
+pip install "git+https://github.com/sekhar14/torus.git@v0.3.0"
 ```
 
 **2. Set it up:**
@@ -186,58 +186,64 @@ You don't need to remember commands; ask in plain words and Claude uses the righ
 | `/torus:distill` | Have the Haiku curator add past sessions' findings to the graph |
 | `/torus:explore` | Open the visual graph explorer |
 
-Behind them, the MCP server gives Claude 42 tools, from `recall` and `record_claim` to
-`filing_diff`, `whatif` and `scorecard`.
+Behind them, the MCP server gives Claude 44 tools, from `brief`, `recall` and `record_claim` to
+`filing_diff`, `whatif` and `scorecard`. Claude Desktop and Codex see 32 of them by default (the
+`analyst` toolset): the queue and low-level graph tools are hidden. Set `TORUS_TOOLSET=full` in
+the server's `env` to show them all.
 
-## Using Torus in Claude Desktop
+## Claude Desktop and Codex in detail
 
-Claude Code is where Torus works best, but the Claude Desktop app's chat can use the same graph
-through the MCP server. (Claude in a web browser can't: it only reaches MCP servers at a public
-address, and Torus runs on your machine.)
+Neither app loads the Claude Code plugin, so the MCP server carries the workflow itself. When
+`TORUS_HARNESS` is `claude-desktop` or `codex` (`torus setup` sets it):
 
-Do steps 1 and 2 of [Getting started](#getting-started-about-5-minutes), then add Torus to
-`claude_desktop_config.json` (Settings > Developer > Edit Config; on Windows it's
-`%APPDATA%\Claude\claude_desktop_config.json`, on macOS
-`~/Library/Application Support/Claude/claude_desktop_config.json`):
+- **Instructions.** The server tells the model to call `brief` with the user's question before
+  researching a company, to record sources and claims as it goes (capture mode `live`, since no
+  curator reads the chat later), and to end each turn with a "Torus recorded ..." receipt. The
+  wording is model-neutral, since Codex runs OpenAI models.
+- **Workflows.** Each `/torus:` command is also an MCP prompt (Claude Desktop's "+" menu) and a
+  Codex skill, rendered from the same source in `src/torus/workflows/`. Steps a Claude Code
+  subagent would do (mapping companies from their 10-Ks, arguing the counter-case) run in the
+  chat instead.
+- **Save this chat.** With no curator, the **Save this chat to Torus** prompt (or asking "save
+  this chat to Torus") records whatever the chat found and didn't record yet.
+- **Undo.** Records are tracked per chat, so "what did you record?" and "undo that" work as in
+  Claude Code (`recent_records`, `undo_records`).
+
+Claude in a web browser, ChatGPT and Copilot can't use Torus: they only reach MCP servers at a
+public address, and Torus runs on your machine.
+
+**Configuring by hand.** `torus setup` writes these for you. In Claude Desktop (Settings >
+Developer > Edit Config; `%APPDATA%\Claude\claude_desktop_config.json` on Windows,
+`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
   "mcpServers": {
     "torus": {
-      "command": "torus",
-      "args": ["serve"]
+      "command": "/full/path/to/torus",
+      "args": ["serve"],
+      "env": { "TORUS_HARNESS": "claude-desktop" }
     }
   }
 }
 ```
 
-Restart Claude Desktop. If it can't start the server, use the full path to `torus` (`where torus`
-on Windows, `which torus` on macOS) as `command`. If you set `TORUS_HOME`, add it under `"env"`
-so Desktop and Claude Code share one graph.
+In Codex (`~/.codex/config.toml`):
 
-**What you lose without Claude Code.** Desktop gets all the tools but none of the plugin, so:
+```toml
+[mcp_servers.torus]
+command = "/full/path/to/torus"
+args = ["serve"]
 
-| In Claude Code | In Claude Desktop |
-|---|---|
-| Prior research is added automatically when a prompt mentions a company | Claude must call `recall` itself, so tell it to (see below) |
-| Claude follows the research protocol (atomic claims, sources, triggers) | Only if your instructions ask for it |
-| A receipt after each turn, and `/torus:undo` | Ask "what did you record?" or "undo that" in plain words (`recent_records`, `undo_records`) |
-| The Haiku curator records what Claude missed | Nothing is captured unless Claude records it during the chat |
-| `/torus:` commands | Ask in plain words: "review my alerts", "audit my research" |
-| Subagents: company mapper, curator, thesis challenger | None: onboarding maps companies in the main chat, and challenges are argued by Claude itself |
+[mcp_servers.torus.env]
+TORUS_HARNESS = "codex"
+```
 
-Watchers, alerts, the audit, the scorecard, memos and the explorer all work the same, since they
-run from the `torus` command and the shared database.
-
-To get closest to the Claude Code experience, put something like this in a Claude project's
-instructions (or your profile preferences):
-
-> Torus is my research memory. Before researching a company, call `recall` with its ticker and
-> build on earlier theses, claims and ruled-out ideas. While researching, record sources with
-> `record_evidence`, atomic claims that cite them with `record_claim`, theses with their
-> assumptions, horizon and triggers with `record_thesis`, and dead ends with
-> `record_rejected_hypothesis`. Correct with `supersede_claim`, never by recording a duplicate.
-> At the end, tell me what you recorded.
+Use the full path (`where torus` on Windows, `which torus` on macOS and Linux): desktop apps don't
+see your shell's `PATH`. If you set `TORUS_HOME`, add it under `env` so every app shares one
+graph. Other `env` settings: `TORUS_CAPTURE_MODE` (`live`, `balanced`, `curator`) and
+`TORUS_TOOLSET` (`analyst`, `full`). Other MCP clients (Cursor, VS Code and so on) may work
+with the same entry, but they aren't tested.
 
 ## Reading SEC filings
 
@@ -468,7 +474,7 @@ Torus keeps your research local. It only makes these requests, all of them reads
 - **Yahoo Finance**, for daily closes of tracked tickers and their benchmark, if any thesis is on
   the scorecard and `price_source` isn't `none`.
 
-Claude's own web research goes through Claude Code as usual.
+Claude's own web research goes through the app you use, as usual.
 
 ## Maintenance
 

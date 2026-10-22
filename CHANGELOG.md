@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.3.0
+
+Torus in Claude Desktop and Codex: the same single-user research loop as in Claude Code, set up
+with one command.
+
+- **`torus setup`.** Asks for the SEC contact email once, downloads the SEC ticker list, and
+  configures the apps it finds: a `torus` entry in Claude Desktop's
+  `claude_desktop_config.json`, and `[mcp_servers.torus]` plus the Torus skills for Codex
+  (`~/.codex`). Each file is backed up first and other servers are kept; a Codex entry you wrote
+  yourself is left alone. It also prints the Claude Code `/plugin` commands and installs the
+  watcher schedule. `torus init --contact` now saves the email too, so it's entered once.
+- **Live capture outside Claude Code.** The capture mode used to default to `balanced`
+  everywhere, which left supporting claims and sources to a curator that only Claude Code has.
+  Claude Desktop, Codex and other clients now default to `live`.
+- **Harness-aware instructions.** Outside Claude Code the server tells the model to call `brief`
+  before researching a company, to record as it goes, and to end each turn with a "Torus
+  recorded ..." receipt. Records are tracked per chat, so `recent_records` and `undo_records`
+  work without hooks.
+- **New tools.** `brief` spots the companies in a question and returns prior research and the
+  digest in one call. `open_explorer` writes the graph explorer and opens it in the browser.
+  `thesis_memo` returns the memo's Markdown, and `audit` and `scorecard` include ready-made
+  Markdown tables.
+- **Workflows as prompts and skills.** Each workflow is written once in `src/torus/workflows/`
+  and rendered as the plugin's `SKILL.md` files, as MCP prompts (Claude Desktop's "+" menu) and
+  as Codex skills. A test fails if the plugin drifts from its source. A new **Save this chat to
+  Torus** prompt replaces the curator in apps that don't have one.
+- **Fewer tools in chat apps.** `TORUS_TOOLSET=analyst` (the default in Claude Desktop and
+  Codex) hides the queue and low-level graph tools; `full` (the default elsewhere) shows all 44.
+- **`torus doctor`** checks the Claude Desktop and Codex entries: that the command exists and
+  that the server starts.
+- **Desktop Extension (experimental).** `scripts/build_mcpb.py` builds `dist/torus.mcpb` with a
+  settings form for the SEC email. It runs Torus through `uv`, so it needs `uv` installed;
+  `torus setup` is the supported path.
+
 ## 0.2.1
 
 Easier to read: tidier company names, labelled alert scores, and less noise in the audit and

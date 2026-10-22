@@ -1,7 +1,7 @@
 {
   "name": "torus",
   "displayName": "Torus stock research memory",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Stock research memory: recalls your earlier theses, claims and ruled-out ideas when you mention a company, records new research as you work, and flags SEC filings that threaten a thesis.",
   "author": {
     "name": "Torus contributors"
