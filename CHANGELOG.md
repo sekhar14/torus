@@ -36,8 +36,8 @@ with one command.
 
 ## 0.2.1
 
-Easier to read: tidier company names, labelled alert scores, and less noise in the audit and
-scorecard.
+Readable company names, alert strength labels, a shorter audit summary and scorecard wording
+fixes.
 
 - **Readable company names.** SEC titles arrive in capitals; Torus now shows them as
   "Taiwan Semiconductor Manufacturing Co Ltd", "ASML Holding NV" or "KLA Corp" in alerts,
@@ -60,7 +60,7 @@ scorecard.
 
 ## 0.2.0
 
-Alerts that matter, onboarding in minutes, and ways to check, stress-test and score the research.
+Alert scoring, onboarding, audit, challenge, what-if, memos and the scorecard.
 
 **Alert precision**
 - Alerts score `graph score x materiality x (1 + trigger match)`. Materiality weighs SEC forms and
