@@ -1,13 +1,23 @@
 {
   "name": "torus",
-  "displayName": "Torus research memory",
+  "displayName": "Torus stock research memory",
   "version": "0.2.1",
-  "description": "Persistent research knowledge graph: recalls prior theses and claims when you mention a company, and records new research as you work.",
+  "description": "Stock research memory: recalls your earlier theses, claims and ruled-out ideas when you mention a company, records new research as you work, and flags SEC filings that threaten a thesis.",
   "author": {
     "name": "Torus contributors"
   },
   "license": "Apache-2.0",
-  "keywords": ["research", "knowledge-graph", "memory", "finance", "equities"],
+  "keywords": [
+    "stock-research",
+    "equity-research",
+    "investing",
+    "stocks",
+    "sec-edgar",
+    "finance",
+    "research",
+    "knowledge-graph",
+    "memory"
+  ],
   "userConfig": {
     "capture_mode": {
       "type": "string",

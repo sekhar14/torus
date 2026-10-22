@@ -1,29 +1,35 @@
 # Torus
 
-A persistent research knowledge graph for AI agents.
-
-When you research companies with Claude Code, Torus keeps what the research found:
-
-- the **companies** and the links between them (suppliers, customers, competitors)
-- **claims**, each tied to the **evidence** that supports it
-- **theses**, with the claims they rest on and what would break them
-- **ideas you ruled out**
-
-Each new session starts from what earlier sessions learned. When a filing or news item arrives,
-Torus works out which of your theses it touches, why, and how much it matters. It keeps the
-research honest (what's gone stale, what rests on one source, what a skeptic would say) and,
-over time, shows how your calls played out.
-
-- **Your model, your subscription.** Torus never calls an LLM itself. The agent in your harness
-  (Claude Code today) does the reasoning, and cheaper Haiku subagents do the bookkeeping.
-- **Local-first.** Everything lives in one SQLite file under `~/.torus` (override with
-  `TORUS_HOME`).
-- **Time-aware.** Every fact records both when it was true and when it was believed, so you can
-  ask what the graph said on any past date. Nothing is ever deleted: corrections are new versions.
-
-See [CHANGELOG.md](CHANGELOG.md) for what's in each release.
+**Stock research memory for Claude Code.** Torus remembers your equity research across
+sessions (the companies, the sourced facts, your investment theses) and warns you when a new
+SEC filing or news story threatens one of them.
 
 ![Torus graph explorer: the semiconductor value chain with NVIDIA, Micron and AMD theses, an alert from a TSMC filing, and the time slider](docs/images/explorer-overview.png)
+
+Ask Claude *"Is NVIDIA still supply-bound?"* and it starts from what you already concluded, not
+from scratch. Torus keeps:
+
+- the **companies** you cover and how they connect: suppliers, customers, competitors
+- **claims** about them, each tied to its source (a 10-K, an earnings call, an article)
+- your **investment theses**: bullish or bearish, the claims they rest on, and what would break them
+- **ideas you ruled out**, so you don't research them again
+
+When a 10-K, 10-Q, 8-K or news item lands, Torus works out which of your theses it touches,
+through which supplier or customer link, and how much it matters. It also keeps the research
+honest (what's gone stale, what rests on one source, what a skeptic would say) and tracks how
+your calls did against the market.
+
+Built for analysts, portfolio managers and serious individual investors.
+
+- **Your model, your subscription.** Torus never calls an LLM itself. Claude does the reasoning,
+  and cheaper Haiku subagents do the bookkeeping.
+- **Local-first.** Your research stays in one SQLite file under `~/.torus` (override with
+  `TORUS_HOME`).
+- **Time-aware.** Every fact records when it was true and when you believed it, so you can ask
+  what you thought on any past date. Nothing is deleted: corrections are new versions.
+
+*Torus is a research memory, not financial advice.* See [CHANGELOG.md](CHANGELOG.md) for what's
+in each release.
 
 ## How it works
 
