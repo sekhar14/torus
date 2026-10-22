@@ -136,8 +136,10 @@ def test_harness_aware_capture_mode_toolset_and_instructions() -> None:
 
 
 def test_claude_desktop_config_paths() -> None:
-    win = claude_desktop_config_path({"APPDATA": r"C:\Users\alice\AppData\Roaming"}, "win32")
-    assert win == Path(r"C:\Users\alice\AppData\Roaming\Claude\claude_desktop_config.json")
+    # Built from APPDATA with the host's Path, so compare the same way on any OS.
+    appdata = r"C:\Users\alice\AppData\Roaming"
+    win = claude_desktop_config_path({"APPDATA": appdata}, "win32")
+    assert win == Path(appdata) / "Claude" / "claude_desktop_config.json"
 
     mac = claude_desktop_config_path({}, "darwin")
     assert mac.parts[-3:] == ("Application Support", "Claude", "claude_desktop_config.json")
