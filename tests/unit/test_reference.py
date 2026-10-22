@@ -37,7 +37,7 @@ def test_load_groups_share_classes_by_cik(reference: ReferenceData) -> None:
 
 def test_share_class_ticker_forms(reference: ReferenceData) -> None:
     brk = reference.by_ticker("BRK.B")
-    assert brk is not None and brk.title == "BERKSHIRE HATHAWAY INC"
+    assert brk is not None and brk.title == "Berkshire Hathaway Inc"
     assert reference.by_ticker("BRK-A") == brk
 
 

@@ -20,6 +20,7 @@ from datetime import datetime
 from pydantic import BaseModel
 
 from torus.core.clock import Clock
+from torus.core.impact import strength
 from torus.core.models import (
     AlertStatus,
     AliasType,
@@ -354,7 +355,7 @@ def render_context(
 
     alert_lines = [
         f'- {_day(a.occurred_at)} {a.event_title} may affect "{a.thesis_title}"'
-        f" (score {a.score:.2f}; {a.why}; alert {a.id})"
+        f" ({strength(a.score)}, score {a.score:.2f}; {a.why}; alert {a.id})"
         for a in result.alerts
     ]
     sections.append(("### Open alerts - review with /torus:review", alert_lines))

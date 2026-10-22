@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 
@@ -148,3 +149,21 @@ def test_cli_audit(torus_home: object, capsys: pytest.CaptureFixture[str]) -> No
     assert main(["audit"]) == 0
     assert "healthy" in capsys.readouterr().out
     assert main(["audit", "--json"]) == 0
+
+
+def test_cli_audit_summarises_many_low_findings(
+    torus_home: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert main(["init"]) == 0
+    with SQLiteBackend.open(torus_home / "torus.db") as store:
+        seed(store, "semis")
+        nvda = store.get_entity_by_key("ticker:NVDA")
+        assert nvda is not None
+        GraphFactory(store).thesis("NVDA supply", nvda)
+    capsys.readouterr()
+    assert main(["audit"]) == 0
+    out = capsys.readouterr().out
+    assert out.count("Unconfirmed starter link:") == 3
+    assert "more unconfirmed starter link finding(s)" in out and "--all" in out
+    assert main(["audit", "--all"]) == 0
+    assert capsys.readouterr().out.count("Unconfirmed starter link:") > 3

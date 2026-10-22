@@ -87,7 +87,7 @@ def _edgar(store: SQLiteBackend, fetcher: FakeFetcher, clock: ManualClock) -> Ed
 
 def test_parse_submissions_and_describe() -> None:
     name, filings = parse_submissions(json.loads(ROUTES[NVDA_URL]))
-    assert name == "NVIDIA CORP" and len(filings) == 5
+    assert name == "Nvidia Corp" and len(filings) == 5
     first = filings[0]
     assert first.items == ("2.02", "9.01")
     assert first.url == (
@@ -96,8 +96,8 @@ def test_parse_submissions_and_describe() -> None:
     assert first.occurred_at == datetime(2025, 12, 30, 21, 5, 11, tzinfo=UTC)
     kind, title = describe(first, name)
     assert kind is EventKind.EARNINGS
-    assert title == "NVIDIA CORP 8-K: results of operations; financial statements and exhibits"
-    assert describe(filings[2], name) == (EventKind.EARNINGS, "NVIDIA CORP 10-Q: quarterly report")
+    assert title == "Nvidia Corp 8-K: results of operations; financial statements and exhibits"
+    assert describe(filings[2], name) == (EventKind.EARNINGS, "Nvidia Corp 10-Q: quarterly report")
     with pytest.raises(ValueError):
         parse_submissions({"nope": 1})
 
@@ -114,8 +114,8 @@ def test_edgar_incremental(
     assert (first.checked, first.new_events, first.skipped, first.error) == (5, 2, 2, None)
     titles = sorted(e.title for e in store.events())
     assert titles == [
-        "NVIDIA CORP 10-Q: quarterly report",
-        "NVIDIA CORP 8-K: results of operations; financial statements and exhibits",
+        "Nvidia Corp 10-Q: quarterly report",
+        "Nvidia Corp 8-K: results of operations; financial statements and exhibits",
     ]
     assert all(e.source == "edgar" and e.entity_ids == (nvda.id,) for e in store.events())
 
@@ -137,7 +137,7 @@ def test_edgar_incremental(
     fetcher.routes[NVDA_URL] = json.dumps(data).encode()
     third = watcher.check(nvda)
     assert third.new_events == 1
-    assert store.events(limit=1)[0].title == "NVIDIA CORP 8-K: executive or director change"
+    assert store.events(limit=1)[0].title == "Nvidia Corp 8-K: executive or director change"
 
 
 def test_edgar_sets_user_agent_and_rate_limits(
@@ -172,7 +172,7 @@ def test_supplier_filing_alerts_customer_thesis(
     [alert] = store.alerts()
     assert alert.thesis_id == thesis.id
     event = store.get_event(alert.event_id)
-    assert event.title == ("TAIWAN SEMICONDUCTOR MANUFACTURING CO LTD 6-K: foreign issuer report")
+    assert event.title == ("Taiwan Semiconductor Manufacturing Co Ltd 6-K: foreign issuer report")
     assert event.summary == "CoWoS capacity update"
 
 
@@ -353,7 +353,7 @@ def test_cli_watch_feed_config_and_run(
     capsys.readouterr()
     assert main(["watch", "list"]) == 0
     listing = capsys.readouterr().out
-    assert "NVIDIA CORP" in listing and "(watchlist)" in listing and FEED_URL in listing
+    assert "Nvidia Corp" in listing and "(watchlist)" in listing and FEED_URL in listing
 
     fetcher = FakeFetcher(ROUTES)
     monkeypatch.setattr(watchers, "UrllibFetcher", lambda: fetcher)
@@ -361,7 +361,7 @@ def test_cli_watch_feed_config_and_run(
     sources = {s["source"]: s for s in json.loads(capsys.readouterr().out)}
     # The CLI runs on the real clock, so these 2025 fixtures are outside the
     # backfill window: check that both sources were read without errors.
-    assert (sources["edgar:NVIDIA CORP"]["error"], sources["edgar:NVIDIA CORP"]["checked"]) == (
+    assert (sources["edgar:Nvidia Corp"]["error"], sources["edgar:Nvidia Corp"]["checked"]) == (
         None,
         5,
     )

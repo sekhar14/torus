@@ -95,7 +95,7 @@ You need Python 3.11+ and Claude Code.
 required:
 
 ```bash
-pip install "git+https://github.com/sekhar14/torus.git@v0.2.0"
+pip install "git+https://github.com/sekhar14/torus.git@v0.2.1"
 ```
 
 **2. Set it up:**
@@ -308,7 +308,9 @@ A routine supplier 10-Q shouldn't interrupt you; a bankruptcy filing should. Eac
   *"TSMC delays CoWoS expansion"* boosts a thesis whose trigger is *"CoWoS capacity slips"*. Write
   triggers in the words a headline would use.
 
-Each alert shows how its score was built. To tune them:
+Each alert shows how its score was built, with a label to read it by: **strong** (1.0 and up,
+as much as a fully material event about the thesis's own subject), **moderate** (0.5 and up) or
+**weak**. To tune them:
 
 ```bash
 torus alerts list                               # open alerts and how each scored
@@ -327,7 +329,9 @@ torus alerts mutes                              # list mutes; torus alerts unmut
   their horizon or unchanged for 90 days, assumptions resting on one non-filing source or on an
   unsourced opinion, claims about the same company that may conflict, inferences built on
   retracted claims, and starter links that alerts depend on but research never confirmed. Claude
-  walks through the findings with you and fixes the ones you agree to.
+  walks through the findings with you and fixes the ones you agree to. In the terminal, long runs
+  of low findings of one kind (say, every starter link after seeding a pack) are summarised after
+  the first three; `torus audit --all` lists them all.
 - **Horizons are dates.** A thesis's horizon ("12m", "18 months", "FY2026", "Q3 2026",
   "2027-06-30") is read as a due date, so the audit and the scorecard know when it's up.
 - **Challenge** (`/torus:challenge`): Torus lists a thesis's weak points (thin or expiring
@@ -358,7 +362,8 @@ its stance, so a bearish thesis gains when the stock lags, and its worst drawdow
 outcome when you mark them confirmed or broken, or by price when they reach their horizon.
 Calibration compares your *initial* confidence with how often you were right: a Brier score (0 is
 perfect; always saying 50% scores 0.25) and a table by confidence band, e.g. "your 80%+ calls were
-right 6 times out of 10".
+right 6 times out of 10". It covers every decided thesis, whether or not it's tracked against a
+price, and says so when fewer than 10 are decided: below that it's an anecdote, not a measure.
 
 Prices come from Yahoo Finance's public chart endpoint, which needs no key but is unofficial and
 can change. If it fails, import closes from a CSV, or set `price_source` to `none`. The scorecard

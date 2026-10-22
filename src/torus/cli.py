@@ -24,6 +24,7 @@ from torus.core.resolve import Resolver
 from torus.core.store.sqlite import SQLiteBackend
 
 ENV_CONTACT = "TORUS_SEC_CONTACT"
+AUDIT_LOW_PER_KIND = 3  # low findings of one kind listed before `torus audit` summarises
 
 
 def _reference(p: Paths) -> ReferenceData:
@@ -288,6 +289,7 @@ def _cmd_feed_remove(args: argparse.Namespace) -> int:
 
 
 def _cmd_alerts_list(args: argparse.Namespace) -> int:
+    from torus.core.impact import strength
     from torus.core.models import AlertStatus
 
     statuses = list(AlertStatus) if args.all else [AlertStatus.OPEN]
@@ -300,11 +302,12 @@ def _cmd_alerts_list(args: argparse.Namespace) -> int:
             event = store.get_event(alert.event_id)
             thesis = store.get_thesis(alert.thesis_id)
             verdict = alert.verdict.value if alert.verdict else alert.status.value
-            print(f"{alert.score:5.2f}  [{verdict}] {event.title}")
-            print(f"       -> {thesis.title} (thesis {thesis.id}, alert {alert.id})")
+            print(f"{alert.score:5.2f} {strength(alert.score):<8} [{verdict}] {event.title}")
+            print(f"                -> {thesis.title} (thesis {thesis.id}, alert {alert.id})")
             if alert.graph_score is not None:
                 print(
-                    f"       graph {alert.graph_score:.2f} x materiality {alert.materiality:.2f}"
+                    f"                graph {alert.graph_score:.2f}"
+                    f" x materiality {alert.materiality:.2f}"
                     f" ({event.materiality_reason or 'n/a'})"
                     f" x (1 + trigger {alert.trigger_match or 0:.2f})"
                 )
@@ -463,7 +466,7 @@ def _cmd_onboard(args: argparse.Namespace) -> int:
 def _cmd_audit(args: argparse.Namespace) -> int:
     from datetime import UTC, datetime
 
-    from torus.core.audit import audit
+    from torus.core.audit import Severity, audit
 
     with _open_store(paths()) as store:
         report = audit(store, datetime.now(UTC), stale_days=args.stale_days)
@@ -473,10 +476,23 @@ def _cmd_audit(args: argparse.Namespace) -> int:
     if not report.findings:
         print("No findings: the graph looks healthy.")
         return 0
+    # Low findings of one kind (e.g. every starter link after seeding a pack) can run to
+    # dozens; show a few and summarise the rest so the high and medium ones stay visible.
+    shown: dict[str, int] = {}
     for f in report.findings:
+        if not args.all and f.severity is Severity.LOW:
+            shown[f.kind] = shown.get(f.kind, 0) + 1
+            if shown[f.kind] > AUDIT_LOW_PER_KIND:
+                continue
         print(f"[{f.severity.value:<6}] {f.title}")
         print(f"         {f.detail[:160]}")
         print(f"         -> {f.suggestion} ({f.object_type} {', '.join(f.object_ids)})")
+    for kind, count in shown.items():
+        if count > AUDIT_LOW_PER_KIND:
+            more = count - AUDIT_LOW_PER_KIND
+            print(f"[low   ] ... and {more} more {kind.replace('_', ' ')} finding(s)")
+    if any(count > AUDIT_LOW_PER_KIND for count in shown.values()):
+        print("         (torus audit --all lists every one)")
     s = report.by_severity
     print(
         f"\n{len(report.findings)} finding(s): {s.get('high', 0)} high, {s.get('medium', 0)}"
@@ -488,6 +504,7 @@ def _cmd_audit(args: argparse.Namespace) -> int:
 def _cmd_whatif(args: argparse.Namespace) -> int:
     from datetime import UTC, datetime
 
+    from torus.core.impact import strength
     from torus.core.whatif import what_if
 
     p = paths()
@@ -509,9 +526,10 @@ def _cmd_whatif(args: argparse.Namespace) -> int:
     if not result.hits:
         print("No open thesis would be reached.")
     for h in result.hits:
-        mark = "ALERT" if h.would_alert else "below"
+        mark = f"ALERT {strength(h.hit.score)}" if h.would_alert else "below"
         print(
-            f"{h.hit.score:5.2f} {mark}  {h.hit.thesis_title} ({h.stance.value}, {h.status.value})"
+            f"{h.hit.score:5.2f} {mark:<14} {h.hit.thesis_title}"
+            f" ({h.stance.value}, {h.status.value})"
         )
         for path in h.hit.paths:
             print(f"        {path.route} via {path.via}")
@@ -549,7 +567,7 @@ def _pct(value: float | None) -> str:
 def _cmd_scorecard(args: argparse.Namespace) -> int:
     from datetime import UTC, datetime
 
-    from torus.core.scorecard import refresh_prices, scorecard, tracked
+    from torus.core.scorecard import MIN_DECIDED, refresh_prices, scorecard, tracked
     from torus.sources.prices import YahooSource
     from torus.watchers.http import UrllibFetcher
 
@@ -565,7 +583,10 @@ def _cmd_scorecard(args: argparse.Namespace) -> int:
         print(card.model_dump_json(indent=2))
         return 0
     if not card.theses:
-        print("No theses tracked. Track one with `torus scorecard track THESIS_ID [TICKER]`.")
+        print(
+            "No theses tracked against a price yet."
+            " Track one with `torus scorecard track THESIS_ID [TICKER]`."
+        )
     for s in card.theses:
         outcome = f" [{s.outcome.value}]" if s.outcome else ""
         print(f"{s.symbol:<6} {s.stance.value:<8} {_pct(s.stance_return)}  {s.title}{outcome}")
@@ -576,9 +597,14 @@ def _cmd_scorecard(args: argparse.Namespace) -> int:
     c = card.calibration
     if c.decided:
         print(
-            f"\nCalibration: {c.right}/{c.decided} right, Brier {c.brier:.3f}"
-            " (0 is perfect, 0.25 is a coin flip)"
+            f"\nCalibration (every decided thesis, tracked or not): {c.right}/{c.decided} right,"
+            f" Brier {c.brier:.3f} (0 is perfect, 0.25 is a coin flip)"
         )
+        if c.decided < MIN_DECIDED:
+            print(
+                f"  Only {c.decided} decided {'thesis' if c.decided == 1 else 'theses'}:"
+                f" too few to read much into; {MIN_DECIDED}+ makes it meaningful."
+            )
         for band in c.bands:
             if band.theses:
                 print(
@@ -929,6 +955,9 @@ def build_parser() -> argparse.ArgumentParser:
     audit_p = sub.add_parser("audit", help="find stale, thin or conflicting research")
     audit_p.add_argument("--stale-days", type=int, default=90, help="days unchanged = stale")
     audit_p.add_argument("--json", action="store_true", help="machine-readable output")
+    audit_p.add_argument(
+        "--all", action="store_true", help="list every low finding instead of a summary"
+    )
     audit_p.set_defaults(func=_cmd_audit)
 
     whatif = sub.add_parser("whatif", help="which theses would a hypothetical event reach?")

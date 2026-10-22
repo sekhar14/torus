@@ -64,6 +64,14 @@ MENTION_WEIGHT = {
     ClaimEntityRole.MENTIONED: 0.6,
 }
 OPEN_STATUSES = (ThesisStatus.ACTIVE, ThesisStatus.AT_RISK)
+# Scores have no upper bound, so people read them through a label. 1.0 is a fully
+# material event about the thesis's own subject; half that is still worth a look.
+STRENGTH_BANDS = ((1.0, "strong"), (0.5, "moderate"), (0.0, "weak"))
+
+
+def strength(score: float) -> str:
+    """'strong', 'moderate' or 'weak': how hard an alert score says to look."""
+    return next(label for floor, label in STRENGTH_BANDS if score >= floor)
 
 
 @dataclass(frozen=True)
