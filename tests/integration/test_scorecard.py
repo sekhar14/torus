@@ -204,5 +204,6 @@ def test_cli_scorecard(
     assert main(["scorecard"]) == 0
     out = capsys.readouterr().out
     assert "Tracking NVDA thesis as NVDA" in out and "Imported 2 closes" in out
-    assert "Calibration: 1/1 right" in out
+    assert "Calibration (every decided thesis, tracked or not): 1/1 right" in out
+    assert "too few to read much into" in out
     assert main(["scorecard", "outcome", thesis.id, "clear"]) == 0

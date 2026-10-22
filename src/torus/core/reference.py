@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO
 
 from torus import __version__
-from torus.core.text import name_key, normalize_ticker
+from torus.core.text import display_name, name_key, normalize_ticker
 
 SEC_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 SEC_TICKERS_FILENAME = "sec_company_tickers.json"
@@ -67,7 +67,9 @@ class ReferenceData:
                 tickers[c].append(t)
         data = cls()
         for c, title in titles.items():
-            company = ReferenceCompany(cik=c, title=title, tickers=tuple(tickers[c]))
+            company = ReferenceCompany(
+                cik=c, title=display_name(title, tickers[c]), tickers=tuple(tickers[c])
+            )
             data.companies[c] = company
             for t in company.tickers:
                 data._by_ticker.setdefault(t, c)

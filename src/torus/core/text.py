@@ -79,3 +79,56 @@ def name_key(name: str) -> str:
 
 def normalize_ticker(ticker: str) -> str:
     return ticker.strip().lstrip("$").upper().replace(".", "-").replace("/", "-")
+
+
+# Legal suffixes with a conventional spelling other than plain title case.
+_SUFFIX_CASE = {
+    "INC": "Inc",
+    "LTD": "Ltd",
+    "PLC": "plc",
+    "SPA": "SpA",
+    "OYJ": "Oyj",
+    **{s: s for s in ("LLC", "LP", "NV", "SA", "AG", "SE", "AB", "ASA", "KK")},
+}
+# Short words that are words, not acronyms; the first three stay lower case mid-name.
+_SHORT_WORDS = frozenset(
+    {
+        *("OF", "THE", "AND", "CO", "COM", "NEW", "OIL", "GAS", "BIO", "ONE", "TWO", "AIR"),
+        *("SEA", "BAY", "BIG", "RED", "SUN", "CAR", "ART", "NET", "WEB", "BOX", "TOP", "FOX"),
+    }
+)
+
+
+def display_name(name: str, tickers: tuple[str, ...] | list[str] = ()) -> str:
+    """A readable company name from an all-caps SEC title.
+
+    'TAIWAN SEMICONDUCTOR MANUFACTURING CO LTD' -> 'Taiwan Semiconductor Manufacturing Co
+    Ltd', 'KLA CORP' -> 'KLA Corp', and a word that is one of the company's ``tickers``
+    stays upper case ('ASML HOLDING NV' -> 'ASML Holding NV'). Names with any lower-case
+    letter are already deliberate and come back unchanged.
+    """
+    name = " ".join(name.split())
+    if not name or any(c.islower() for c in name):
+        return name
+    keep = {t.upper() for t in tickers}
+    words = []
+    for i, word in enumerate(name.split(" ")):
+        bare = word.rstrip(".,")
+        tail = word[len(bare) :]
+        if bare in _SUFFIX_CASE:
+            words.append(_SUFFIX_CASE[bare] + tail)
+        elif bare in keep or not bare.replace("-", "").replace("'", "").isalpha():
+            words.append(word)  # the ticker itself, or 3M, AT&T, /DE/: leave as filed
+        elif len(bare) <= 3 and bare not in _SHORT_WORDS:
+            words.append(word)  # KLA, AMD, USA: acronyms
+        elif i > 0 and bare in {"OF", "THE", "AND"}:
+            words.append(word.lower())
+        else:
+            words.append("-".join(_cap(p) for p in bare.split("-")) + tail)
+    return " ".join(words)
+
+
+def _cap(word: str) -> str:
+    if len(word) > 3 and word.startswith("MC"):
+        return "Mc" + word[2:].capitalize()
+    return word.capitalize()

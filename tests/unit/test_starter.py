@@ -88,3 +88,20 @@ def test_agent_re_recording_a_starter_link_takes_ownership(
         if r.src_id == tsm.id
     ]
     assert [r.source for r in history] == ["agent"]
+
+
+def test_seed_keeps_a_rivalry_recorded_the_other_way(store: SQLiteBackend) -> None:
+    seed(store, "semis")
+    nvda, amd = store.get_entity_by_key("ticker:NVDA"), store.get_entity_by_key("ticker:AMD")
+    assert nvda is not None and amd is not None
+    for rel in store.relations(nvda.id, rel=RelationType.COMPETES_WITH):
+        if amd.id in (rel.src_id, rel.dst_id):
+            store.retire_relation(rel.id, "test")
+    store.record_relation(amd.id, RelationType.COMPETES_WITH, nvda.id, 0.9)
+    assert seed(store, "semis").relations_added == 0
+    rivals = [
+        r
+        for r in store.relations(nvda.id, rel=RelationType.COMPETES_WITH)
+        if amd.id in (r.src_id, r.dst_id)
+    ]
+    assert [(r.src_id, r.source) for r in rivals] == [(amd.id, "agent")]

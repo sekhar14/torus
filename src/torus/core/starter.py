@@ -100,10 +100,12 @@ def seed(store: Backend, name: str, reference: ReferenceData | None = None) -> S
         for src, rel, dst, confidence, _note in pack["relations"]:
             src_id, dst_id = ids[src], ids[dst]
             rel_type = RelationType(rel)
+            # COMPETES_WITH runs both ways, so a link recorded in either direction counts.
+            direction = "both" if rel_type is RelationType.COMPETES_WITH else "out"
             existing = [
                 r
-                for r in store.relations(src_id, direction="out", rel=rel_type)
-                if r.dst_id == dst_id
+                for r in store.relations(src_id, direction=direction, rel=rel_type)
+                if {r.src_id, r.dst_id} == {src_id, dst_id}
             ]
             if existing:
                 report.relations_kept += 1

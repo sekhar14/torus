@@ -110,3 +110,24 @@ def test_0002_backfills_alias_keys(monkeypatch: pytest.MonkeyPatch) -> None:
     m.migrate(conn)
     row = conn.execute("SELECT alias_key FROM entity_aliases WHERE entity_id = 'e1'").fetchone()
     assert row[0] == "nvidia"
+
+
+def test_0012_tidies_sec_names(monkeypatch: pytest.MonkeyPatch) -> None:
+    conn = sqlite3.connect(":memory:", isolation_level=None)
+    all_migrations = m.available()
+    monkeypatch.setattr(m, "available", lambda: all_migrations[:11])
+    m.migrate(conn)
+    rows = [
+        ("e1", "ASML HOLDING NV", "cik:0000937966", '{"tickers": ["ASML"]}'),
+        ("e2", "SK hynix Inc", "cik:0000000001", "{}"),
+        ("e3", "MY OWN NAME", "ticker:MINE", "{}"),
+    ]
+    conn.executemany(
+        "INSERT INTO entities (id, kind, name, canonical_key, attrs_json, created_at, updated_at)"
+        " VALUES (?, 'company', ?, ?, ?, 't', 't')",
+        rows,
+    )
+    monkeypatch.setattr(m, "available", lambda: all_migrations)
+    m.migrate(conn)
+    names = dict(conn.execute("SELECT id, name FROM entities").fetchall())
+    assert names == {"e1": "ASML Holding NV", "e2": "SK hynix Inc", "e3": "MY OWN NAME"}

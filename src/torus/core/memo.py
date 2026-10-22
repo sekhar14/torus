@@ -19,6 +19,7 @@ from pydantic import BaseModel
 from torus.core.models import (
     AlertStatus,
     Claim,
+    RelationType,
     Support,
     ThesisClaimRole,
 )
@@ -157,7 +158,16 @@ def build_memo(store: Backend, thesis_id: str, now: datetime) -> Memo:
         ruled_out = [
             (h.text, h.reason) for h in store.rejected_hypotheses(thesis.subject_entity_id)
         ]
-        for rel in store.relations(thesis.subject_entity_id):
+        rels = store.relations(thesis.subject_entity_id)
+        # COMPETES_WITH runs both ways: list each pair once, preferring a research link.
+        rels.sort(key=lambda r: r.source.startswith("starter:"))
+        seen_rivals: set[frozenset[str]] = set()
+        for rel in rels:
+            if rel.rel is RelationType.COMPETES_WITH:
+                pair = frozenset((rel.src_id, rel.dst_id))
+                if pair in seen_rivals:
+                    continue
+                seen_rivals.add(pair)
             src, dst = names.get(rel.src_id, rel.src_id), names.get(rel.dst_id, rel.dst_id)
             starter = " (starter pack, unconfirmed)" if rel.source.startswith("starter:") else ""
             links.append(f"{src} {rel.rel.value.replace('_', ' ').lower()} {dst}{starter}")
@@ -235,8 +245,8 @@ def render_markdown(memo: Memo) -> str:
             )
             for source in claim.sources:
                 label = "contradicts" if source.contradicts else "source"
-                when = f", {_date(source.published_at)}" if source.published_at else ""
-                by = f" ({source.publisher}{when})" if source.publisher or when else ""
+                meta = [m for m in (source.publisher, _date(source.published_at)) if m]
+                by = f" ({', '.join(meta)})" if meta else ""
                 out.append(f"   - {label}: [{source.title}]({source.uri}){by}")
                 if source.quote:
                     out.append(f"     > {source.quote.strip()}")
