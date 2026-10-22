@@ -1,8 +1,9 @@
 [project]
 name = "torus-kg"
-version = "0.2.1"
-description = "Persistent research knowledge graph for AI agents (Claude Code, Codex, ...)"
+version = "0.3.0"
+description = "Stock research memory for Claude Code: equity research, investment theses and SEC filing alerts in a local knowledge graph"
 readme = "README.md"
+keywords = ["stock-research", "equity-research", "investment-research", "investing", "stocks", "sec-edgar", "knowledge-graph", "claude-code", "mcp"]
 license = "Apache-2.0"
 requires-python = ">=3.11"
 dependencies = [
@@ -17,6 +18,10 @@ dev = [
     "ruff>=0.6",
     "mypy>=1.11",
 ]
+
+[project.urls]
+Homepage = "https://github.com/sekhar14/torus"
+Changelog = "https://github.com/sekhar14/torus/blob/main/CHANGELOG.md"
 
 [project.scripts]
 torus = "torus.cli:main"

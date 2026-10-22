@@ -14,6 +14,7 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import BaseModel, Field
 
+from torus.config import has_curator
 from torus.core.audit import AuditReport, audit
 from torus.core.challenge import WeakPoints, weak_points
 from torus.core.filing_diff import Changed, diff_sections
@@ -24,6 +25,7 @@ from torus.core.scorecard import Scorecard, refresh_prices, scorecard, tracked
 from torus.core.starter import available_packs, seed
 from torus.core.undo import SessionRecords, UndoOutcome, recent, undo
 from torus.core.whatif import WhatIfResult, what_if
+from torus.explorer import build_data, render
 from torus.mcp.common import FETCH, READ_ONLY, WRITE, EntityRef, aware
 from torus.sources.edgar_docs import SECTION_NAMES, EdgarDocs, base_form, page, section_key
 from torus.sources.prices import YahooSource
@@ -114,6 +116,15 @@ class MemoResult(BaseModel):
     html_path: str
 
 
+class ExplorerResult(BaseModel):
+    path: str
+    opened: bool
+    companies: int
+    links: int
+    theses: int
+    events: int
+
+
 # -- filings --------------------------------------------------------------------------
 
 
@@ -195,7 +206,13 @@ def register_workflow_tools(server: MCPServer, tools: TorusTools) -> None:
         packs, and queue a mapping job for each (run by the company-mapper subagent,
         which reads their annual reports and records suppliers, customers and
         competitors)."""
-        report = onboard(store, tickers, tools.reference, watch=watch)
+        report = onboard(
+            store,
+            tickers,
+            tools.reference,
+            watch=watch,
+            map_companies=has_curator(tools.harness),
+        )
         tools.detector.refresh()
         packs = available_packs()
         return OnboardResult(
@@ -350,6 +367,39 @@ def register_workflow_tools(server: MCPServer, tools: TorusTools) -> None:
             markdown=render_markdown(memo),
             markdown_path=str(markdown_path),
             html_path=str(html_path),
+        )
+
+    @server.tool(annotations=WRITE)
+    @guard
+    def open_explorer(
+        focus: Annotated[
+            list[str], Field(description="Companies to centre on (default: whole graph)")
+        ] = [],  # noqa: B006
+        hops: Annotated[int, Field(ge=1, le=4)] = 2,
+        open_browser: Annotated[
+            bool, Field(description="Open the HTML file in the default browser")
+        ] = True,
+    ) -> ExplorerResult:
+        """Write the interactive graph explorer HTML file (under TORUS_HOME/explorer.html)
+        and open it in the user's browser."""
+        import webbrowser
+
+        focus_ids = [tools.entity(ref).id for ref in focus]
+        data = build_data(store, focus=focus_ids, hops=hops)
+        out = tools.home / "explorer.html"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(render(data), encoding="utf-8")
+        opened = False
+        if open_browser:
+            opened = bool(webbrowser.open(out.resolve().as_uri()))
+        counts = data["meta"]["counts"]
+        return ExplorerResult(
+            path=str(out),
+            opened=opened,
+            companies=int(counts["entity"]),
+            links=int(data["meta"]["links"]),
+            theses=int(counts["thesis"]),
+            events=int(counts["event"]),
         )
 
     # -- challenge -------------------------------------------------------------------

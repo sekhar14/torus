@@ -21,8 +21,8 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import BaseModel, Field
 
-from torus import __version__
-from torus.config import CaptureMode, capture_mode, paths
+from torus import __version__, workflows
+from torus.config import CaptureMode, Toolset, capture_mode, has_curator, paths, toolset
 from torus.core import graph, transcript
 from torus.core.alert_stats import AlertStats, alert_stats
 from torus.core.audit import audit
@@ -70,6 +70,7 @@ from torus.core.store.base import Backend
 from torus.hooks import autodistill
 from torus.mcp.common import READ_ONLY, WRITE, Confidence, EntityRef
 from torus.mcp.common import aware as _aware
+from torus.mcp.prompts import register_prompts
 from torus.mcp.workflows import register_workflow_tools
 from torus.protocol import instructions
 from torus.watchers.http import Fetcher
@@ -77,6 +78,26 @@ from torus.watchers.http import Fetcher
 ENV_HARNESS = "TORUS_HARNESS"
 ENV_SESSION = "TORUS_SESSION_ID"
 DISTILL_KIND = "distill_session"  # same kind the hooks enqueue
+BRIEF_BUDGET_TOKENS = 1200
+
+# Bookkeeping and subagent queue tools hidden in the `analyst` toolset (Claude
+# Desktop, Codex) so the model sees only research and workflow tools.
+ANALYST_HIDDEN_TOOLS = frozenset(
+    {
+        "next_distillation",
+        "complete_distillation",
+        "next_mapping",
+        "complete_mapping",
+        "merge_entities",
+        "upsert_entity",
+        "get_entity",
+        "search",
+        "impact",
+        "watch",
+        "unwatch",
+        "list_watches",
+    }
+)
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -291,6 +312,51 @@ class ThesisView(BaseModel):
     mutes: list[ThesisMute] = []
 
 
+class BriefResult(BaseModel):
+    detected_entities: list[str] = Field(
+        description="Known companies spotted in `text`, as 'Name (id)'"
+    )
+    context: str = Field(
+        description="Prior theses, claims and open alerts on those companies (markdown)"
+    )
+    digest: str = Field(
+        description="Graph overview: open alerts, theses at risk, 7-day changes, audit summary"
+    )
+    recall: RecallResult | None = None
+
+
+def _render_digest(store: Backend, now: datetime, harness: str = "claude-code") -> str:
+    lines = ["## Torus digest"]
+    open_alerts = store.alerts(statuses=[AlertStatus.OPEN])
+    if open_alerts:
+        lines.append(f"Open alerts: {len(open_alerts)}")
+        for alert in open_alerts[:5]:
+            event = store.get_event(alert.event_id)
+            thesis = store.get_thesis(alert.thesis_id)
+            lines.append(f"- {event.title} -> {thesis.title} (alert {alert.id})")
+    at_risk = store.theses(statuses=[ThesisStatus.AT_RISK])
+    lines.append(f"Theses at risk: {len(at_risk)}")
+    lines += [f"- {t.title} (thesis {t.id}, conf {t.confidence:.2f})" for t in at_risk]
+    changes = what_changed(store, now - timedelta(days=7)).changes
+    lines.append(f"Changes in the last 7 days: {len(changes)}")
+    lines += [f"- {c.at:%Y-%m-%d} {c.kind.value}: {c.summary}" for c in changes[-20:]]
+    health = audit(store, now)
+    if health.findings:
+        severities = health.by_severity
+        lines.append(
+            f"Graph audit: {severities.get('high', 0)} high, {severities.get('medium', 0)}"
+            f" medium, {severities.get('low', 0)} low findings"
+            f" (see {workflows.reference('audit', workflows.target_for(harness))})."
+        )
+    stats = alert_stats(store, now - timedelta(days=90))
+    if stats.judged:
+        lines.append(
+            f"Alert precision (90 days): {stats.precision:.0%} of {stats.judged} judged"
+            f" alerts were related; {stats.open} open."
+        )
+    return "\n".join(lines)
+
+
 class TorusTools:
     """State shared by the tool functions: store, resolver, detector, session."""
 
@@ -304,21 +370,28 @@ class TorusTools:
         mode: CaptureMode | None = None,
         home: Path | None = None,
         fetcher: Fetcher | None = None,
+        active_toolset: Toolset | None = None,
     ) -> None:
         self.store = store
         self.reference = reference
         self.home = home or paths().home
         self.fetcher = fetcher  # None: real HTTP (tests inject recorded responses)
-        self.mode = mode or capture_mode()
+        self.harness = harness or os.environ.get(ENV_HARNESS, "mcp")
+        self.mode = mode or capture_mode(harness=self.harness)
+        self.toolset = active_toolset or toolset(harness=self.harness)
         self.clock = clock or SystemClock()
         self.resolver = Resolver(store, reference)
         self.detector = EntityDetector(store, reference)
-        self.harness = harness or os.environ.get(ENV_HARNESS, "mcp")
         self.external_session_id = external_session_id or os.environ.get(ENV_SESSION) or None
         self.lock = threading.RLock()
         self._session_id: str | None = None
         self.job_session_id: str | None = None
         self.mapping_job: str | None = None  # queue id of a leased map_company job
+
+    def note_record(self, object_type: str, object_id: str) -> None:
+        """Track records in ``session_records`` when no harness hook does so."""
+        if not has_curator(self.harness):
+            self.store.note_session_record(self.session_id(), object_type, object_id)
 
     def session_id(self) -> str:
         """The session new records are attributed to.
@@ -371,13 +444,53 @@ def build_server(tools: TorusTools) -> MCPServer:
     server = MCPServer(
         "torus",
         title="Torus research memory",
-        instructions=instructions(tools.mode),
+        instructions=instructions(tools.mode, harness=tools.harness),
         version=__version__,
     )
     store = tools.store
     guard = tools.guard
 
     # -- read ---------------------------------------------------------------
+
+    @server.tool(annotations=READ_ONLY)
+    @guard
+    def brief(
+        text: Annotated[
+            str,
+            Field(
+                description="The user's question or company names (leave blank for the digest only)"
+            ),
+        ] = "",
+    ) -> BriefResult:
+        """One-call briefing at the start of a turn: spots known companies in `text`,
+        recalls prior theses, claims, open alerts and ruled-out ideas about them,
+        and returns the graph digest."""
+        now = tools.clock.now()
+        entity_ids: list[str] = []
+        if text.strip():
+            entity_ids = tools.detector.detect(text).entity_ids
+            if not entity_ids:
+                resolved = tools.resolver.resolve(text.strip(), create=False)
+                if resolved.entity is not None:
+                    entity_ids = [resolved.entity.id]
+        recalled: RecallResult | None = None
+        if entity_ids:
+            store.note_session_entities(tools.session_id(), entity_ids)
+            recalled = recall(store, tools.clock, entity_ids=entity_ids, limit=10)
+        elif text.strip():
+            recalled = recall(store, tools.clock, query=text.strip(), limit=10)
+        names = {eid: name for eid, (_, name) in store.entity_index().items()}
+        context = (
+            render_context(recalled, now=now, budget_tokens=BRIEF_BUDGET_TOKENS)
+            if recalled is not None and not recalled.is_empty
+            else ""
+        )
+        return BriefResult(
+            detected_entities=[f"{names.get(e, e)} ({e})" for e in entity_ids],
+            context=context,
+            digest=_render_digest(store, now, tools.harness),
+            recall=recalled,
+        )
 
     @server.tool(name="recall", annotations=READ_ONLY)
     @guard
@@ -504,7 +617,7 @@ def build_server(tools: TorusTools) -> MCPServer:
         published_at: datetime | None = None,
     ) -> Evidence:
         """Record a source. Re-recording the same URI returns the existing record."""
-        return store.record_evidence(
+        ev = store.record_evidence(
             uri,
             kind=kind,
             title=title,
@@ -512,6 +625,8 @@ def build_server(tools: TorusTools) -> MCPServer:
             published_at=_aware(published_at),
             quote=quote,
         )
+        tools.note_record("evidence", ev.id)
+        return ev
 
     @server.tool(annotations=WRITE)
     @guard
@@ -545,7 +660,7 @@ def build_server(tools: TorusTools) -> MCPServer:
             ClaimEvidence(evidence_id=e, support=Support.CONTRADICTS)
             for e in contradicting_evidence_ids
         ]
-        return store.record_claim(
+        claim = store.record_claim(
             text,
             claim_type,
             confidence,
@@ -556,6 +671,8 @@ def build_server(tools: TorusTools) -> MCPServer:
             valid_to=_aware(valid_to),
             session_id=tools.session_id(),
         )
+        tools.note_record("claim", claim.id)
+        return claim
 
     @server.tool(annotations=WRITE)
     @guard
@@ -569,7 +686,7 @@ def build_server(tools: TorusTools) -> MCPServer:
         ] = None,
     ) -> Claim:
         """Correct a claim: the old version stays in history, the new one is current."""
-        return store.supersede_claim(
+        claim = store.supersede_claim(
             claim_id,
             reason,
             text=text,
@@ -577,6 +694,8 @@ def build_server(tools: TorusTools) -> MCPServer:
             evidence=evidence_ids,
             session_id=tools.session_id(),
         )
+        tools.note_record("claim", claim.id)
+        return claim
 
     @server.tool(annotations=WRITE)
     @guard
@@ -597,7 +716,7 @@ def build_server(tools: TorusTools) -> MCPServer:
     ) -> Relation:
         """Link two entities, e.g. TSMC SUPPLIES NVIDIA. Re-recording an existing
         link updates it (confidence, backing claim, dates) instead of duplicating it."""
-        return store.record_relation(
+        rel_obj = store.record_relation(
             tools.entity(source).id,
             rel,
             tools.entity(target).id,
@@ -608,6 +727,8 @@ def build_server(tools: TorusTools) -> MCPServer:
             # While a distillation job is leased, the caller is the curator.
             source="curator" if tools.job_session_id or tools.mapping_job else "agent",
         )
+        tools.note_record("relation", rel_obj.id)
+        return rel_obj
 
     @server.tool(annotations=WRITE)
     @guard
@@ -628,7 +749,7 @@ def build_server(tools: TorusTools) -> MCPServer:
         ] = [],  # noqa: B006
     ) -> Thesis:
         """Record a conclusion and the claims it rests on."""
-        return store.record_thesis(
+        thesis = store.record_thesis(
             title=title,
             statement=statement,
             stance=stance,
@@ -643,6 +764,8 @@ def build_server(tools: TorusTools) -> MCPServer:
             ],
             session_id=tools.session_id(),
         )
+        tools.note_record("thesis", thesis.id)
+        return thesis
 
     @server.tool(annotations=WRITE)
     @guard
@@ -701,7 +824,7 @@ def build_server(tools: TorusTools) -> MCPServer:
             for mute_id in remove_mute_ids:
                 if not store.remove_thesis_mute(mute_id):
                     raise NotFoundError("thesis mute", mute_id)
-            return _revise(
+            revised = _revise(
                 thesis_id,
                 reason,
                 status,
@@ -711,6 +834,8 @@ def build_server(tools: TorusTools) -> MCPServer:
                 add_triggers,
                 remove_trigger_ids,
             )
+            tools.note_record("thesis", revised.id)
+            return revised
 
     def _revise(
         thesis_id: str,
@@ -744,12 +869,14 @@ def build_server(tools: TorusTools) -> MCPServer:
         entities: list[str] = [],  # noqa: B006
     ) -> RejectedHypothesis:
         """Record an idea that was checked and ruled out, so it isn't re-explored."""
-        return store.record_rejected_hypothesis(
+        hyp = store.record_rejected_hypothesis(
             text,
             reason,
             entity_ids=[tools.entity(e).id for e in entities],
             session_id=tools.session_id(),
         )
+        tools.note_record("hypothesis", hyp.id)
+        return hyp
 
     # -- events & alerts --------------------------------------------------------
 
@@ -986,6 +1113,10 @@ def build_server(tools: TorusTools) -> MCPServer:
         return DistillationOutcome(queue_id=item.id, status=item.status, remaining=remaining)
 
     register_workflow_tools(server, tools)
+    register_prompts(server)
+    if tools.toolset is Toolset.ANALYST:
+        for tool_name in ANALYST_HIDDEN_TOOLS:
+            server.remove_tool(tool_name)
 
     # -- resources ----------------------------------------------------------
 
@@ -1012,28 +1143,7 @@ def build_server(tools: TorusTools) -> MCPServer:
     @guard
     def digest_resource() -> str:
         """Theses at risk and what changed in the last 7 days."""
-        now = tools.clock.now()
-        lines = ["## Torus digest"]
-        at_risk = store.theses(statuses=[ThesisStatus.AT_RISK])
-        lines.append(f"Theses at risk: {len(at_risk)}")
-        lines += [f"- {t.title} (thesis {t.id}, conf {t.confidence:.2f})" for t in at_risk]
-        changes = what_changed(store, now - timedelta(days=7)).changes
-        lines.append(f"Changes in the last 7 days: {len(changes)}")
-        lines += [f"- {c.at:%Y-%m-%d} {c.kind.value}: {c.summary}" for c in changes[-20:]]
-        health = audit(store, now)
-        if health.findings:
-            severities = health.by_severity
-            lines.append(
-                f"Graph audit: {severities.get('high', 0)} high, {severities.get('medium', 0)}"
-                f" medium, {severities.get('low', 0)} low findings (/torus:audit)."
-            )
-        stats = alert_stats(store, now - timedelta(days=90))
-        if stats.judged:
-            lines.append(
-                f"Alert precision (90 days): {stats.precision:.0%} of {stats.judged} judged"
-                f" alerts were related; {stats.open} open."
-            )
-        return "\n".join(lines)
+        return _render_digest(store, tools.clock.now(), tools.harness)
 
     return server
 

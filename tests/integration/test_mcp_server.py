@@ -23,6 +23,7 @@ pytestmark = pytest.mark.anyio
 
 SNAPSHOT = FIXTURES / "mcp_tools_snapshot.json"
 EXPECTED_TOOLS = {
+    "brief",
     "recall",
     "get_entity",
     "search",
@@ -67,8 +68,10 @@ EXPECTED_TOOLS = {
     "track_thesis",
     "scorecard",
     "set_thesis_outcome",
+    "open_explorer",
 }
 READ_ONLY_TOOLS = {
+    "brief",
     "recall",
     "get_entity",
     "search",
@@ -138,7 +141,11 @@ async def test_tool_schemas_match_snapshot(client: Client) -> None:
         for t in sorted(listed, key=lambda t: t.name)
     }
     if os.environ.get("TORUS_UPDATE_SNAPSHOTS") == "1":
-        SNAPSHOT.write_text(json.dumps(current, indent=2, sort_keys=True) + "\n", "utf-8")
+        SNAPSHOT.write_text(
+            json.dumps(current, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
     assert SNAPSHOT.exists(), "run once with TORUS_UPDATE_SNAPSHOTS=1 to create the snapshot"
     assert current == json.loads(SNAPSHOT.read_text("utf-8"))
 
@@ -708,3 +715,116 @@ async def test_relation_source_is_curator_during_distillation(
     )
     assert curated["source"] == "curator"
     await call(client, "complete_distillation", queue_id=job["queue_id"], summary="ok")
+
+
+# -- Desktop & Codex parity: prompts, brief, analyst toolset, explorer -----------------
+
+
+async def test_mcp_prompts_listed_and_rendered(client: Client) -> None:
+    from torus.mcp.prompts import PROMPT_NAMES
+
+    prompts = (await client.list_prompts()).prompts
+    assert {p.name for p in prompts} == set(PROMPT_NAMES)
+
+    status_default = await client.get_prompt("status")
+    status_text = getattr(status_default.messages[0].content, "text", "")
+    assert "Call `brief`" in status_text
+
+    status_nvda = await client.get_prompt("status", {"company": "NVDA"})
+    nvda_text = getattr(status_nvda.messages[0].content, "text", "")
+    assert "Company: NVDA" in nvda_text
+
+    onboard_prompt = await client.get_prompt("onboard", {"tickers": "NVDA AMD"})
+    onboard_text = getattr(onboard_prompt.messages[0].content, "text", "")
+    assert "Companies to onboard: NVDA AMD" in onboard_text
+    assert "next_mapping" not in onboard_text  # desktop render has no queue tools
+
+    save_prompt = await client.get_prompt("save_this_chat")
+    save_text = getattr(save_prompt.messages[0].content, "text", "")
+    assert "record_evidence" in save_text and "record_claim" in save_text
+
+
+async def test_brief_and_open_explorer_tools(
+    store: SQLiteBackend, reference: ReferenceData, clock: ManualClock, tmp_path: Path
+) -> None:
+    tools = TorusTools(
+        store,
+        reference,
+        clock=clock,
+        harness="claude-desktop",
+        home=tmp_path / "home",
+    )
+    async with Client(build_server(tools)) as c:
+        await call(
+            c,
+            "record_thesis",
+            title="NVDA supply-bound",
+            statement="CoWoS limits shipments",
+            stance="bullish",
+            confidence=0.7,
+            subject="NVDA",
+        )
+        briefed = await call(c, "brief", text="Is $NVDA still supply-bound?")
+        assert any("Nvidia Corp" in d for d in briefed["detected_entities"])
+        assert "NVDA supply-bound" in briefed["context"]
+        assert "Theses at risk: 0" in briefed["digest"]
+        assert briefed["recall"] is not None
+        assert briefed["recall"]["theses"][0]["title"] == "NVDA supply-bound"
+
+        empty_brief = await call(c, "brief", text="")
+        assert empty_brief["detected_entities"] == []
+        assert empty_brief["recall"] is None
+
+        explored = await call(c, "open_explorer", focus=["NVDA"], hops=1, open_browser=False)
+        assert Path(explored["path"]).exists()
+        assert explored["companies"] >= 1
+
+
+async def test_analyst_toolset_and_session_records_in_desktop_and_codex(
+    store: SQLiteBackend, reference: ReferenceData, clock: ManualClock, tmp_path: Path
+) -> None:
+    from torus.mcp.server import ANALYST_HIDDEN_TOOLS
+
+    for harness in ("claude-desktop", "codex"):
+        clock.advance(seconds=1)
+        tools = TorusTools(
+            store,
+            reference,
+            clock=clock,
+            harness=harness,
+            home=tmp_path / harness,
+            external_session_id=f"sess-{harness}",
+        )
+        async with Client(build_server(tools)) as c:
+            assert c.instructions is not None
+            assert "Capture mode: live" in c.instructions
+            assert "Torus recorded" in c.instructions
+
+            listed = {t.name for t in (await c.list_tools()).tools}
+            assert listed == EXPECTED_TOOLS - ANALYST_HIDDEN_TOOLS
+
+            # Onboarding in desktop/codex does not queue orphaned background mapping jobs.
+            ob = await call(c, "onboard", tickers=["NVDA"])
+            assert ob["mapping_jobs_queued"] == 0
+
+            # Write tools record session_records directly so undo_records works without hooks.
+            claim = await call(
+                c,
+                "record_claim",
+                text=f"Note from {harness}",
+                claim_type="opinion",
+                confidence=0.6,
+                entities=["NVDA"],
+            )
+            recent = await call(c, "recent_records", sessions=1)
+            session_id = recent["sessions"][0]["session_id"]
+            recorded_ids = {r["id"] for s in recent["sessions"] for r in s["records"]}
+            assert claim["id"] in recorded_ids
+
+            undone = await call(
+                c,
+                "undo_records",
+                session_id=session_id,
+                records=[{"type": "claim", "id": claim["id"]}],
+            )
+            assert any(o["id"] == claim["id"] for o in undone["outcomes"])

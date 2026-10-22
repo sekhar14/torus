@@ -79,12 +79,43 @@ class CaptureMode(StrEnum):
 ENV_CAPTURE_MODE = "TORUS_CAPTURE_MODE"
 # Exported by Claude Code to plugin hooks from the plugin's `capture_mode` userConfig.
 ENV_PLUGIN_CAPTURE_MODE = "CLAUDE_PLUGIN_OPTION_CAPTURE_MODE"
+ENV_HARNESS = "TORUS_HARNESS"
+ENV_TOOLSET = "TORUS_TOOLSET"
+CURATOR_HARNESSES = frozenset({"claude-code", "test"})
+ANALYST_HARNESSES = frozenset({"claude-desktop", "codex"})
 
 
-def capture_mode(env: dict[str, str] | None = None) -> CaptureMode:
+class Toolset(StrEnum):
+    """Which MCP tools to expose.
+
+    * analyst - the tools a researcher uses in chat (default in Claude Desktop
+                and Codex; hides background queue and low-level maintenance tools)
+    * full    - every tool, including subagent queue tools (default in Claude Code)
+    """
+
+    ANALYST = "analyst"
+    FULL = "full"
+
+
+def has_curator(harness: str) -> bool:
+    """Whether ``harness`` runs the end-of-session transcript curator."""
+    return harness.strip().lower() in CURATOR_HARNESSES
+
+
+def capture_mode(env: dict[str, str] | None = None, harness: str = "claude-code") -> CaptureMode:
     environ = os.environ if env is None else env
     for name in (ENV_CAPTURE_MODE, ENV_PLUGIN_CAPTURE_MODE):
         value = environ.get(name, "").strip().lower()
         if value in CaptureMode._value2member_map_:
             return CaptureMode(value)
-    return CaptureMode.BALANCED
+    active_harness = environ.get(ENV_HARNESS, "").strip().lower() or harness
+    return CaptureMode.BALANCED if has_curator(active_harness) else CaptureMode.LIVE
+
+
+def toolset(env: dict[str, str] | None = None, harness: str = "claude-code") -> Toolset:
+    environ = os.environ if env is None else env
+    value = environ.get(ENV_TOOLSET, "").strip().lower()
+    if value in Toolset._value2member_map_:
+        return Toolset(value)
+    active_harness = environ.get(ENV_HARNESS, "").strip().lower() or harness.strip().lower()
+    return Toolset.ANALYST if active_harness in ANALYST_HARNESSES else Toolset.FULL
