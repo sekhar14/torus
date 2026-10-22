@@ -1,6 +1,6 @@
 {
   "name": "torus",
-  "description": "Torus: a persistent research knowledge graph for AI agents.",
+  "description": "Torus: stock research memory for Claude Code.",
   "owner": {
     "name": "Torus contributors"
   },
@@ -8,9 +8,18 @@
     {
       "name": "torus",
       "source": "./plugins/claude-code",
-      "description": "Recalls prior research when you mention a company and records new theses, claims and evidence as you work.",
+      "description": "Stock research memory: recalls your earlier theses when you mention a company, records sourced claims as you research, and flags SEC filings that threaten a thesis.",
       "category": "research",
-      "tags": ["research", "knowledge-graph", "memory", "finance"]
+      "tags": [
+        "research",
+        "stocks",
+        "equity-research",
+        "investing",
+        "finance",
+        "sec-edgar",
+        "knowledge-graph",
+        "memory"
+      ]
     }
   ]
 }
