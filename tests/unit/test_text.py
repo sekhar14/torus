@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from torus.core.text import name_key, normalize_alias, normalize_ticker
+from torus.core.text import display_name, name_key, normalize_alias, normalize_ticker
 
 
 @pytest.mark.parametrize(
@@ -48,3 +48,29 @@ def test_normalize_ticker(raw: str, norm: str) -> None:
 
 def test_normalize_alias_keeps_suffixes() -> None:
     assert normalize_alias("NVIDIA, Corp.") == "nvidia corp"
+
+
+@pytest.mark.parametrize(
+    ("title", "tickers", "shown"),
+    [
+        (
+            "TAIWAN SEMICONDUCTOR MANUFACTURING CO LTD",
+            ("TSM",),
+            "Taiwan Semiconductor Manufacturing Co Ltd",
+        ),
+        ("NVIDIA CORP", ("NVDA",), "Nvidia Corp"),
+        ("ASML HOLDING NV", ("ASML",), "ASML Holding NV"),
+        ("KLA CORP", ("KLAC",), "KLA Corp"),
+        ("BANK OF AMERICA CORP /DE/", ("BAC",), "Bank of America Corp /DE/"),
+        ("AT&T INC.", ("T",), "AT&T Inc."),
+        ("3M CO", ("MMM",), "3M Co"),
+        ("COCA-COLA CO", ("KO",), "Coca-Cola Co"),
+        ("MCDONALD'S CORP", ("MCD",), "McDonald's Corp"),
+        ("ARM HOLDINGS PLC /UK", ("ARM",), "ARM Holdings plc /UK"),
+        ("SK hynix Inc", (), "SK hynix Inc"),
+        ("", (), ""),
+    ],
+)
+def test_display_name(title: str, tickers: tuple[str, ...], shown: str) -> None:
+    assert display_name(title, tickers) == shown
+    assert name_key(shown) == name_key(title)

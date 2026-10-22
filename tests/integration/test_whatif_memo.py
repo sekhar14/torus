@@ -9,7 +9,7 @@ import pytest
 from conftest import GraphFactory
 from torus.cli import main
 from torus.core.clock import ManualClock
-from torus.core.impact import ingest_event
+from torus.core.impact import ingest_event, strength
 from torus.core.memo import build_memo, render_html, render_markdown, save_memo
 from torus.core.models import (
     ClaimType,
@@ -143,3 +143,31 @@ def test_cli_whatif_and_memo(torus_home: Path, capsys: pytest.CaptureFixture[str
     assert main(["memo", t.id]) == 0
     assert "memos" in capsys.readouterr().out
     assert main(["memo", "nope"]) == 1
+
+
+def test_memo_source_without_publisher_and_rivals_once(
+    store: SQLiteBackend, graph: GraphFactory, clock: ManualClock
+) -> None:
+    nvda, amd = graph.company("NVDA", "NVIDIA"), graph.company("AMD", "AMD")
+    ev = store.record_evidence(
+        "https://example.com/call", title="Earnings call", published_at=clock.now()
+    )
+    claim = store.record_claim(
+        "Demand exceeds supply", ClaimType.FACT, 0.8, entities=[nvda.id], evidence=[ev.id]
+    )
+    store.record_relation(amd.id, RelationType.COMPETES_WITH, nvda.id, 0.9)
+    store.record_relation(
+        nvda.id, RelationType.COMPETES_WITH, amd.id, 0.9, source="starter:semis@1"
+    )
+    text = render_markdown(build_memo(store, graph.thesis("NVDA", nvda, claim.id).id, clock.now()))
+    assert f"[Earnings call](https://example.com/call) ({clock.now():%Y-%m-%d})" in text
+    assert "None" not in text
+    rivals = [line for line in text.splitlines() if "competes with" in line]
+    assert rivals == ["- AMD competes with NVIDIA"]
+
+
+@pytest.mark.parametrize(
+    ("score", "label"), [(2.3, "strong"), (1.0, "strong"), (0.6, "moderate"), (0.2, "weak")]
+)
+def test_alert_strength(score: float, label: str) -> None:
+    assert strength(score) == label

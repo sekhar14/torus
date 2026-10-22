@@ -217,7 +217,7 @@ async def test_recall_detects_entities_in_query(client: Client) -> None:
         evidence_ids=[ev["id"]],
     )
     recalled = await call(client, "recall", query="Any update on $NVDA ramps?")
-    assert [e["name"] for e in recalled["entities"]] == ["NVIDIA CORP"]
+    assert [e["name"] for e in recalled["entities"]] == ["Nvidia Corp"]
     assert recalled["claims"][0]["text"] == "Blackwell ramp ahead of plan"
 
 
@@ -315,7 +315,7 @@ async def test_get_entity_lists_relations(client: Client) -> None:
     assert (rel["direction"], rel["rel"], rel["other_name"]) == (
         "in",
         "SUPPLIES",
-        "TAIWAN SEMICONDUCTOR MANUFACTURING CO LTD",
+        "Taiwan Semiconductor Manufacturing Co Ltd",
     )
 
 
@@ -495,7 +495,7 @@ async def test_distillation_job_contents(
     job = (await call(client, "next_distillation"))["job"]
     assert job["session_id"] == session_id
     assert job["attempt"] == 1
-    assert job["entities"][0].startswith("NVIDIA CORP")
+    assert job["entities"][0].startswith("Nvidia Corp")
     assert [r["text"] for r in job["already_recorded"]] == [
         "CEO says demand far exceeds CoWoS supply"
     ]
@@ -652,7 +652,7 @@ async def test_resolve_alert_needs_rationale(client: Client) -> None:
 
 async def test_watch_tools(client: Client) -> None:
     watched = await call(client, "watch", entity="NVDA", note="supply story")
-    assert [(e["name"], e["reason"]) for e in watched["entities"]] == [("NVIDIA CORP", "watchlist")]
+    assert [(e["name"], e["reason"]) for e in watched["entities"]] == [("Nvidia Corp", "watchlist")]
     await call(
         client,
         "record_thesis",
@@ -665,11 +665,11 @@ async def test_watch_tools(client: Client) -> None:
     listed = await call(client, "list_watches")
     reasons = {e["name"]: e["reason"] for e in listed["entities"]}
     assert reasons == {
-        "NVIDIA CORP": "watchlist",
-        "TAIWAN SEMICONDUCTOR MANUFACTURING CO LTD": "open thesis",
+        "Nvidia Corp": "watchlist",
+        "Taiwan Semiconductor Manufacturing Co Ltd": "open thesis",
     }
     after = await call(client, "unwatch", entity="NVDA")
-    assert [e["name"] for e in after["entities"]] == ["TAIWAN SEMICONDUCTOR MANUFACTURING CO LTD"]
+    assert [e["name"] for e in after["entities"]] == ["Taiwan Semiconductor Manufacturing Co Ltd"]
 
 
 # -- M8: graph queries & provenance ---------------------------------------------------
@@ -682,15 +682,15 @@ async def test_neighbors_and_find_paths(client: Client) -> None:
         )
     sub = await call(client, "neighbors", entity="TSM", hops=1)
     assert {n["label"] for n in sub["nodes"]} == {
-        "TAIWAN SEMICONDUCTOR MANUFACTURING CO LTD",
-        "ASML HOLDING NV",
-        "NVIDIA CORP",
-        "ADVANCED MICRO DEVICES INC",
+        "Taiwan Semiconductor Manufacturing Co Ltd",
+        "ASML Holding NV",
+        "Nvidia Corp",
+        "Advanced Micro Devices Inc",
     }
     result = await call(client, "find_paths", source="ASML", target="AMD")
     assert result["texts"][0] == (
-        "ASML HOLDING NV -SUPPLIES-> TAIWAN SEMICONDUCTOR MANUFACTURING CO LTD"
-        " -SUPPLIES-> ADVANCED MICRO DEVICES INC"
+        "ASML Holding NV -SUPPLIES-> Taiwan Semiconductor Manufacturing Co Ltd"
+        " -SUPPLIES-> Advanced Micro Devices Inc"
     )
 
 

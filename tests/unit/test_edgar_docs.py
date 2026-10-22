@@ -68,7 +68,7 @@ def test_latest_and_previous_filings_are_cached(tmp_path: Path) -> None:
     fetcher = FakeFetcher(acme_routes())
     docs = acme_docs(tmp_path, fetcher)
     latest = docs.latest(ACME_CIK, "10-K")
-    assert latest.company == "ACME CHIPS INC"
+    assert latest.company == "Acme Chips Inc"
     assert latest.filing.accession == "0000999001-26-000010"
     assert "sole foundry" in latest.section("business")
     previous = docs.latest(ACME_CIK, "10-K", index=1)

@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.2.1
+
+Easier to read: tidier company names, labelled alert scores, and less noise in the audit and
+scorecard.
+
+- **Readable company names.** SEC titles arrive in capitals; Torus now shows them as
+  "Taiwan Semiconductor Manufacturing Co Ltd", "ASML Holding NV" or "KLA Corp" in alerts,
+  memos, recall and event titles. A word that is the company's ticker, and short acronyms, stay
+  in capitals; names with any lower-case letter are left as they are. Migration 0012 tidies the
+  names already stored for SEC-keyed companies (schema v12). The old spelling stays an alias,
+  and lookups ignore case.
+- **Alert strength labels.** Alert scores have no upper bound, so `torus alerts list`,
+  `torus whatif` and recalled alerts now label them: *strong* (1.0 and up, as much as a fully
+  material event about the thesis's own subject), *moderate* (0.5 and up) or *weak*.
+- **Audit summary.** `torus audit` lists three low findings of each kind and summarises the rest
+  (for example, every starter link after seeding a pack), so high and medium findings stay
+  visible. `torus audit --all` lists everything; the MCP tool still returns every finding.
+- **Scorecard wording.** Calibration says it covers every decided thesis, tracked against a price
+  or not, and warns when fewer than 10 are decided.
+- **Memo fixes.** A source with a date but no publisher no longer shows "None", and a competitor
+  link recorded in both directions (research one way, a starter pack the other) is listed once.
+- **Starter packs** no longer add a competitor link that research already recorded in the other
+  direction.
+
 ## 0.2.0
 
 Alerts that matter, onboarding in minutes, and ways to check, stress-test and score the research.

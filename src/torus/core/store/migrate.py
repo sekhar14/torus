@@ -7,6 +7,7 @@ failed migration leaves the database at the previous version.
 
 from __future__ import annotations
 
+import json
 import re
 import sqlite3
 from dataclasses import dataclass
@@ -14,7 +15,7 @@ from importlib import resources
 
 from torus.core.clock import from_ts, to_ts_opt
 from torus.core.horizon import parse_horizon
-from torus.core.text import name_key
+from torus.core.text import display_name, name_key
 
 _NAME = re.compile(r"^(\d{4})_[a-z0-9_]+\.sql$")
 
@@ -53,6 +54,12 @@ def register_functions(conn: sqlite3.Connection) -> None:
     """SQL functions that migrations (and queries) may use."""
     conn.create_function("torus_name_key", 1, name_key, deterministic=True)
     conn.create_function("torus_horizon_date", 2, _horizon_date, deterministic=True)
+    conn.create_function("torus_display_name", 2, _display_name, deterministic=True)
+
+
+def _display_name(name: str, attrs_json: str | None) -> str:
+    tickers = json.loads(attrs_json or "{}").get("tickers") or []
+    return display_name(name, [str(t) for t in tickers])
 
 
 def _horizon_date(horizon: str | None, created_at: str | None) -> str | None:

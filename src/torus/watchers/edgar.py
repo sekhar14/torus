@@ -21,6 +21,7 @@ from torus.core.impact import ingest_event
 from torus.core.models import Entity, EventKind
 from torus.core.reference import ReferenceData, format_cik
 from torus.core.store.base import Backend
+from torus.core.text import display_name
 from torus.watchers.http import Fetcher, RateLimiter, user_agent
 
 SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik}.json"
@@ -136,11 +137,12 @@ def parse_submissions(payload: object) -> tuple[str, list[Filing]]:
                 items=tuple(i.strip() for i in str(items or "").split(",") if i.strip()),
             )
         )
-    return str(payload.get("name") or cik), filings
+    tickers = [str(t) for t in payload.get("tickers") or []]
+    return display_name(str(payload.get("name") or cik), tickers), filings
 
 
 def describe(filing: Filing, company: str) -> tuple[EventKind, str]:
-    """Event kind and a readable title, e.g. "NVIDIA CORP 8-K: results of operations"."""
+    """Event kind and a readable title, e.g. "Nvidia Corp 8-K: results of operations"."""
     if filing.items:
         what = "; ".join(ITEM_TITLES.get(i, f"item {i}") for i in filing.items)
     else:

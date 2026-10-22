@@ -32,6 +32,7 @@ from torus.sources.prices import PriceSource
 DEFAULT_BENCHMARK = "SPY"
 BENCHMARK_SETTING = "benchmark"
 PRICE_SOURCE_SETTING = "price_source"  # yahoo (default) | none
+MIN_DECIDED = 10  # below this, calibration is anecdote rather than evidence
 BANDS = ((0.0, 0.5), (0.5, 0.6), (0.6, 0.7), (0.7, 0.8), (0.8, 0.9), (0.9, 1.01))
 SIGN = {Stance.BULLISH: 1, Stance.BEARISH: -1}
 LOOKBACK_DAYS = 10  # fetch a little before entry so the entry day has a close
