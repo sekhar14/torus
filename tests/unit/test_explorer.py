@@ -98,3 +98,26 @@ def test_template_supports_deep_links_and_stable_layout() -> None:
     template = resources.files("torus.explorer").joinpath("template.html").read_text("utf-8")
     assert "#select=" in template  # explorer.html#select=NVDA opens with NVDA selected
     assert "Math.random" not in template  # seeded layout: same graph, same picture
+
+
+def test_timeline_records_when_things_appeared(
+    store: SQLiteBackend, graph: GraphFactory, clock: ManualClock
+) -> None:
+    from torus.core.models import RelationType, ThesisStatus
+
+    nvda, tsm = graph.company("NVDA"), graph.company("TSM")
+    first = store.record_relation(tsm.id, RelationType.SUPPLIES, nvda.id, 0.6)
+    clock.advance(days=10)
+    store.record_relation(tsm.id, RelationType.SUPPLIES, nvda.id, 0.9)  # a revision
+    thesis = graph.thesis("NVDA supply", nvda)
+    clock.advance(days=5)
+    store.update_thesis(thesis.id, "risk", status=ThesisStatus.AT_RISK)
+    timeline = build_data(store, clock=clock)["timeline"]
+    [rel_edge] = [e for e in timeline["edges"] if ":" not in e]
+    assert timeline["edges"][rel_edge] == first.recorded_at.isoformat()  # first version
+    assert timeline["nodes"][thesis.id] == thesis.created_at.isoformat()
+    assert [s for _, s in timeline["status"][thesis.id]] == ["active", "at_risk"]
+    assert (
+        timeline["start"] <= timeline["nodes"][nvda.id]
+        and timeline["end"] == clock.now().isoformat()
+    )

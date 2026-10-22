@@ -46,7 +46,13 @@ Rules that apply in every mode:
   guidance, prices, rates and contracts.
 - **Theses link their assumptions.** `record_thesis` with `assumption_claim_ids`,
   a horizon, and `triggers` saying what would invalidate it. This is what lets
-  Torus flag the thesis when news breaks later.
+  Torus flag the thesis when news breaks later. Write triggers in concrete
+  words a headline would use ("TSMC CoWoS capacity slips into 2027"), with the
+  company they watch: Torus matches event wording against them.
+- **Horizons are dates.** Use forms Torus can read: "12m", "18 months",
+  "FY2026", "Q3 2026", "2027-06-30". The audit flags theses past their horizon,
+  and the scorecard decides tracked theses there. Offer `track_thesis` for a
+  thesis about a listed company.
 - **Correct, don't duplicate.** Use `supersede_claim` when a number changes and
   `retract_claim` when something was wrong. Use `update_thesis` to change a
   thesis's status or confidence, with a reason.
@@ -71,7 +77,14 @@ Look around the graph before concluding:
 Links whose source is `starter:…` come from a curated pack. Confirm or correct
 them as you research. Re-recording a link marks it as yours.
 
-## 4. Finish
+## 4. Read primary sources
+
+`filing_text` reads a company's SEC filings by section (`business`,
+`risk_factors`, `mdna`), and `filing_diff` shows what changed since the
+previous filing. Prefer them to secondary write-ups, cite the filing `url` as
+evidence of kind `filing`, and quote it verbatim.
+
+## 5. Finish
 
 End with a short summary of what changed in the graph: new theses, theses whose
 status or confidence moved, and claims you superseded.

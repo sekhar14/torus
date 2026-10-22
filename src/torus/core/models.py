@@ -231,6 +231,12 @@ class Thesis(_Record):
     updated_at: datetime
     claims: tuple[ThesisClaim, ...]
     triggers: tuple[ThesisTrigger, ...]
+    alert_threshold: float | None = None  # None: the global setting
+    horizon_date: datetime | None = None  # when the horizon ends, if understood
+    instrument: str | None = None  # ticker the scorecard tracks
+    entry_price: float | None = None  # None: the close on entry_at
+    entry_at: datetime | None = None  # None: created_at
+    benchmark: str | None = None  # None: the global benchmark (SPY)
 
 
 class ThesisHistoryEntry(_Record):
@@ -250,6 +256,7 @@ class RejectedHypothesis(_Record):
     entity_ids: tuple[str, ...]
     session_id: str | None
     recorded_at: datetime
+    withdrawn_at: datetime | None = None
 
 
 class Session(_Record):
@@ -335,6 +342,8 @@ class Event(_Record):
     content_hash: str
     payload: dict[str, Any]
     entity_ids: tuple[str, ...]
+    materiality: float = 1.0
+    materiality_reason: str | None = None
 
 
 class AlertStatus(StrEnum):
@@ -372,3 +381,36 @@ class Alert(_Record):
     rationale: str | None
     created_at: datetime
     resolved_at: datetime | None
+    # score = graph_score * materiality * (1 + trigger_match); None before schema v8
+    graph_score: float | None = None
+    materiality: float | None = None
+    trigger_match: float | None = None
+    matched_trigger: str | None = None
+
+
+class Outcome(StrEnum):
+    RIGHT = "right"
+    WRONG = "wrong"
+    UNCLEAR = "unclear"
+
+
+class ThesisOutcome(_Record):
+    thesis_id: str
+    outcome: Outcome
+    method: str  # status | horizon | user
+    decided_at: datetime
+    stance_return: float | None
+    note: str | None
+
+
+class ThesisMute(_Record):
+    """Suppresses alerts on a thesis for matching events (all set fields must match)."""
+
+    id: str
+    thesis_id: str
+    entity_id: str | None
+    event_kind: EventKind | None
+    form: str | None
+    until: datetime | None
+    note: str | None
+    created_at: datetime

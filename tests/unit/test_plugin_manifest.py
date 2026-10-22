@@ -120,11 +120,19 @@ def test_user_config_references_are_declared(manifest: dict[str, Any]) -> None:
 def test_skills_have_frontmatter() -> None:
     skills = sorted((PLUGIN / "skills").iterdir())
     assert [s.name for s in skills] == [
+        "audit",
+        "challenge",
         "distill",
         "explore",
+        "ingest",
+        "memo",
+        "onboard",
         "research-protocol",
         "review",
+        "scorecard",
         "status",
+        "undo",
+        "whatif",
     ]
     for skill in skills:
         fields = _frontmatter(skill / "SKILL.md")
@@ -185,3 +193,68 @@ def test_review_skill_uses_alert_tools() -> None:
 def test_explore_skill_runs_the_cli() -> None:
     body = (PLUGIN / "skills" / "explore" / "SKILL.md").read_text("utf-8")
     assert "torus explore" in body and "--no-open" in body
+
+
+@pytest.mark.parametrize(
+    ("agent", "model", "tools"),
+    [
+        ("company-mapper", "haiku", ("next_mapping", "complete_mapping", "filing_text")),
+        ("thesis-challenger", "inherit", ("thesis_weak_points", "filing_diff", "whatif")),
+    ],
+)
+def test_workflow_agents(agent: str, model: str, tools: tuple[str, ...]) -> None:
+    path = PLUGIN / "agents" / f"{agent}.md"
+    fields = _frontmatter(path)
+    assert fields["name"] == agent and fields["model"] == model
+    blocked = {t.strip() for t in fields["disallowedTools"].split(",")}
+    assert {"Edit", "Write", "Bash"} <= blocked
+    body = path.read_text("utf-8")
+    for tool in tools:
+        assert tool in body
+    assert not {"hooks", "mcpServers", "permissionMode"} & set(fields)
+
+
+@pytest.mark.parametrize(
+    ("skill", "needle"),
+    [
+        ("onboard", "torus:company-mapper"),
+        ("challenge", "torus:thesis-challenger"),
+        ("audit", "`audit`"),
+        ("undo", "undo_records"),
+        ("whatif", "`whatif`"),
+        ("memo", "thesis_memo"),
+        ("scorecard", "`scorecard`"),
+        ("ingest", "filing_diff"),
+    ],
+)
+def test_workflow_skills_name_their_tools(skill: str, needle: str) -> None:
+    assert needle in (PLUGIN / "skills" / skill / "SKILL.md").read_text("utf-8")
+
+
+def _schema_words(schema: Any) -> set[str]:
+    """Every property name anywhere in a JSON schema."""
+    words: set[str] = set()
+    if isinstance(schema, dict):
+        for key, value in schema.items():
+            if key == "properties" and isinstance(value, dict):
+                words |= set(value)
+            words |= _schema_words(value)
+    elif isinstance(schema, list):
+        for item in schema:
+            words |= _schema_words(item)
+    return words
+
+
+def test_mcp_tools_named_in_plugin_exist() -> None:
+    """Every snake_case name a skill or agent puts in backticks is a real MCP tool,
+    one of the tools' parameters or result fields, or a Torus setting."""
+    from torus.cli import CONFIG_KEYS
+    from torus.sources.edgar_docs import SECTION_NAMES
+
+    snapshot = _json(ROOT / "tests" / "fixtures" / "mcp_tools_snapshot.json")
+    known = set(snapshot) | _schema_words(snapshot) | set(CONFIG_KEYS)
+    known |= {n for names in SECTION_NAMES.values() for n in names}  # filing sections
+    known |= {"at_risk", "research_protocol"}  # a thesis status; a skill name
+    for path in [*PLUGIN.glob("skills/*/SKILL.md"), *PLUGIN.glob("agents/*.md")]:
+        for name in re.findall(r"`([a-z]+(?:_[a-z]+)+)`", path.read_text("utf-8")):
+            assert name in known, f"{path.relative_to(PLUGIN)} names unknown `{name}`"

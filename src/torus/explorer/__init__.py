@@ -1,6 +1,8 @@
 """The visual explorer: one self-contained HTML file (no network, no CDN) showing
 the research graph with entities, links, theses, events and alerts. Click a node
-to see its claims, evidence, history and alerts.
+to see its claims, evidence, history and alerts. A time slider replays how the
+research grew: each node and link carries when Torus first learned it, and each
+thesis its status over time.
 
 ``build_data`` collects a snapshot (or a neighbourhood around focus entities);
 ``render`` embeds it in the page template.
@@ -65,7 +67,9 @@ def build_data(
         elif node.kind == "event":
             details[node.id] = _event_details(store, node.id, names)
 
+    now = clock.now()
     return {
+        "timeline": _timeline(store, sub, now),
         "meta": {
             "version": __version__,
             "generated_at": clock.now().isoformat(timespec="seconds"),
@@ -91,6 +95,39 @@ def render(data: dict[str, Any]) -> str:
     if template.count(PLACEHOLDER) != 1:
         raise RuntimeError("explorer template must contain exactly one data placeholder")
     return template.replace(PLACEHOLDER, payload)
+
+
+def _timeline(store: Backend, sub: Subgraph, now: datetime) -> dict[str, Any]:
+    """When each node and edge first appeared, and each thesis's status history."""
+    nodes: dict[str, str] = {}
+    status: dict[str, list[list[str]]] = {}
+    for node in sub.nodes:
+        if node.kind == "entity":
+            nodes[node.id] = store.get_entity(node.id).created_at.isoformat()
+        elif node.kind == "thesis":
+            nodes[node.id] = store.get_thesis(node.id).created_at.isoformat()
+            status[node.id] = [
+                [h.at.isoformat(), h.status.value] for h in store.thesis_history(node.id)
+            ]
+        elif node.kind == "event":
+            nodes[node.id] = store.get_event(node.id).ingested_at.isoformat()
+    edges: dict[str, str] = {}
+    for edge in sub.edges:
+        if edge.kind.isupper():  # a relation: when its first version was recorded
+            first = store.get_relation(store.get_relation(edge.id).lineage_id)
+            edges[edge.id] = first.recorded_at.isoformat()
+        elif edge.kind == "alert":
+            edges[edge.id] = store.get_alert(edge.id).created_at.isoformat()
+        else:  # thesis/event -> entity: appears with its source node
+            edges[edge.id] = nodes.get(edge.source, now.isoformat())
+    times = [*nodes.values(), *edges.values()]
+    return {
+        "start": min(times) if times else now.isoformat(),
+        "end": now.isoformat(),
+        "nodes": nodes,
+        "edges": edges,
+        "status": status,
+    }
 
 
 def _json_default(value: object) -> str:
@@ -157,6 +194,11 @@ def _thesis_details(store: Backend, thesis_id: str, names: dict[str, str]) -> di
                 "status": alert.status.value,
                 "verdict": alert.verdict.value if alert.verdict else None,
                 "score": alert.score,
+                "graph_score": alert.graph_score,
+                "materiality": alert.materiality,
+                "materiality_reason": event.materiality_reason,
+                "trigger_match": alert.trigger_match,
+                "matched_trigger": alert.matched_trigger,
                 "event": event.title,
                 "uri": event.uri,
                 "occurred_at": event.occurred_at.isoformat(),

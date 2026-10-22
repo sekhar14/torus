@@ -12,6 +12,8 @@ import sqlite3
 from dataclasses import dataclass
 from importlib import resources
 
+from torus.core.clock import from_ts, to_ts_opt
+from torus.core.horizon import parse_horizon
 from torus.core.text import name_key
 
 _NAME = re.compile(r"^(\d{4})_[a-z0-9_]+\.sql$")
@@ -50,6 +52,13 @@ def current_version(conn: sqlite3.Connection) -> int:
 def register_functions(conn: sqlite3.Connection) -> None:
     """SQL functions that migrations (and queries) may use."""
     conn.create_function("torus_name_key", 1, name_key, deterministic=True)
+    conn.create_function("torus_horizon_date", 2, _horizon_date, deterministic=True)
+
+
+def _horizon_date(horizon: str | None, created_at: str | None) -> str | None:
+    if not horizon or not created_at:
+        return None
+    return to_ts_opt(parse_horizon(horizon, from_ts(created_at)))
 
 
 def latest_version() -> int:

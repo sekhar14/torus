@@ -8,18 +8,22 @@ Watchers use no LLM.
 
 from __future__ import annotations
 
+import functools
 import os
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from torus.core.clock import Clock, SystemClock
 from torus.core.detect import EntityDetector
 from torus.core.reference import ReferenceData
 from torus.core.store.base import Backend
-from torus.watchers.edgar import EdgarWatcher, SourceReport
+from torus.watchers.edgar import EdgarWatcher, Filing, SourceReport
 from torus.watchers.http import Fetcher, FetchError, RateLimiter, UrllibFetcher
 from torus.watchers.rss import RssWatcher
 
 SEC_CONTACT_SETTING = "sec_contact"
+FILING_DIFFS_SETTING = "filing_diffs"  # on (default) | off
 ENV_SEC_CONTACT = "TORUS_SEC_CONTACT"
 
 __all__ = ["SourceReport", "WatchReport", "run_watchers", "sec_contact"]
@@ -54,9 +58,16 @@ def run_watchers(
     limiter: RateLimiter | None = None,
     edgar: bool = True,
     rss: bool = True,
+    home: Path | None = None,
+    prices: bool = True,
 ) -> WatchReport:
     """One pass over every watch target and feed. One failing source never stops
-    the others; its error is reported instead."""
+    the others; its error is reported instead.
+
+    With ``home``, new 10-K/10-Q events also summarise what changed in the risk
+    factors since the previous filing (setting ``filing_diffs``, on by default).
+    With ``prices``, closes for theses tracked on the scorecard are refreshed
+    (setting ``price_source``: yahoo by default, or none)."""
     fetcher = fetcher or UrllibFetcher()
     clock = clock or SystemClock()
     report = WatchReport()
@@ -72,11 +83,27 @@ def run_watchers(
                 )
             )
         elif contact is not None:
+            differ: Callable[[str, Filing, list[Filing]], str | None] | None = None
+            if home is not None and (store.get_setting(FILING_DIFFS_SETTING) or "on") != "off":
+                from torus.sources.edgar_docs import EdgarDocs, risk_change_summary
+
+                docs = EdgarDocs(fetcher, contact, home / "sources" / "edgar", limiter=limiter)
+                differ = functools.partial(risk_change_summary, docs)
+
             watcher = EdgarWatcher(
-                store, fetcher, contact, clock, limiter=limiter, reference=reference
+                store,
+                fetcher,
+                contact,
+                clock,
+                limiter=limiter,
+                reference=reference,
+                differ=differ,
             )
             for entity in targets:
                 report.sources.append(_safely(watcher.check, entity, f"edgar:{entity.name}"))
+
+    if prices:
+        report.sources += _refresh_prices(store, fetcher, clock)
 
     if rss:
         feeds = store.feeds()
@@ -88,6 +115,21 @@ def run_watchers(
                     _safely(rss_watcher.check, url, f"rss:{feed['name'] or url}", feed["name"])
                 )
     return report
+
+
+def _refresh_prices(store: Backend, fetcher: Fetcher, clock: Clock) -> list[SourceReport]:
+    from torus.core.scorecard import PRICE_SOURCE_SETTING, refresh_prices, tracked
+    from torus.sources.prices import YahooSource
+
+    if (store.get_setting(PRICE_SOURCE_SETTING) or "yahoo") == "none" or not tracked(store):
+        return []
+    result = refresh_prices(store, YahooSource(fetcher), clock.now().date())
+    failed = {s: str(v) for s, v in result.items() if isinstance(v, str)}
+    report = SourceReport(source="prices", checked=len(result))
+    report.notes = [f"{s}: {v}" for s, v in failed.items()]
+    if failed and len(failed) == len(result):
+        report.error = "; ".join(report.notes)
+    return [report]
 
 
 def _safely(check: object, arg: object, label: str, *extra: object) -> SourceReport:

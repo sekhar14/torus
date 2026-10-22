@@ -14,9 +14,16 @@ score for each way a reached entity bears on it:
                                                    object 0.8, mentioned 0.6)
 * a thesis trigger watches it                    factor * 1.0
 
-Contributions add up. Theses scoring at least ``threshold`` get an alert that
-lists the strongest paths, so the agent can see *why* before judging.
-Only active and at-risk theses are considered.
+Contributions add up to the thesis's *graph score*. The alert score then weighs
+in what the event is (``torus.core.materiality``) and whether its text says what
+one of the thesis's triggers warns about (``torus.core.triggers``)::
+
+    score = graph score * materiality * (1 + best trigger match)
+
+Theses scoring at least their threshold (the thesis's own, else the global
+``alert_threshold`` setting, else ``DEFAULT_THRESHOLD``) get an alert that lists
+the strongest paths, so the agent can see *why* before judging. Mutes on a thesis
+suppress matching events. Only active and at-risk theses are considered.
 """
 
 from __future__ import annotations
@@ -27,6 +34,8 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from torus.core import triggers
+from torus.core.materiality import assess
 from torus.core.models import (
     Alert,
     ClaimEntityRole,
@@ -34,6 +43,7 @@ from torus.core.models import (
     EventKind,
     ImpactPath,
     ThesisClaimRole,
+    ThesisMute,
     ThesisStatus,
 )
 from torus.core.store.base import Backend
@@ -41,6 +51,7 @@ from torus.core.store.base import Backend
 MAX_HOPS = 2
 HOP_DECAY = 0.5
 DEFAULT_THRESHOLD = 0.2
+THRESHOLD_SETTING = "alert_threshold"
 MAX_PATHS_PER_ALERT = 3
 ROLE_WEIGHT = {
     ThesisClaimRole.ASSUMPTION: 1.0,
@@ -72,6 +83,10 @@ class ImpactHit(BaseModel):
     thesis_title: str
     score: float
     paths: list[ImpactPath]
+    graph_score: float
+    materiality: float = 1.0
+    trigger_match: float = 0.0
+    matched_trigger: str | None = None
 
 
 @dataclass
@@ -79,6 +94,43 @@ class IngestResult:
     event: Event
     created: bool
     alerts: list[Alert] = field(default_factory=list)
+    muted: int = 0  # theses that would have been alerted but for a mute
+
+
+def global_threshold(store: Backend) -> float:
+    """The ``alert_threshold`` setting, or ``DEFAULT_THRESHOLD``."""
+    value = store.get_setting(THRESHOLD_SETTING)
+    try:
+        return float(value) if value is not None else DEFAULT_THRESHOLD
+    except ValueError:
+        return DEFAULT_THRESHOLD
+
+
+def is_muted(mute: ThesisMute, event: Event) -> bool:
+    """Whether ``mute`` covers ``event`` (every field it sets must match)."""
+    if mute.until is not None and event.occurred_at >= mute.until:
+        return False
+    if mute.entity_id is not None and mute.entity_id not in event.entity_ids:
+        return False
+    if mute.event_kind is not None and mute.event_kind is not event.kind:
+        return False
+    if mute.form:
+        form = str(event.payload.get("form") or "").upper().removesuffix("/A")
+        if form != mute.form.upper().removesuffix("/A") and f" {mute.form.upper()}" not in (
+            f" {event.title.upper()}"
+        ):
+            return False
+    return True
+
+
+def _names(store: Backend, entity_ids: Sequence[str]) -> list[str]:
+    """Names and aliases of the event's entities (left out of trigger matching)."""
+    names = []
+    for entity_id in entity_ids:
+        entity = store.get_entity(store.live_entity_id(entity_id))
+        names.append(entity.name)
+        names += [a.alias for a in entity.aliases]
+    return names
 
 
 def reach(
@@ -118,8 +170,14 @@ def impact(
     at: datetime,
     max_hops: int = MAX_HOPS,
     threshold: float = DEFAULT_THRESHOLD,
+    *,
+    text: str | None = None,
+    materiality: float = 1.0,
 ) -> list[ImpactHit]:
-    """Theses an event on ``entity_ids`` at time ``at`` may affect, best first."""
+    """Theses an event on ``entity_ids`` at time ``at`` may affect, best first.
+
+    ``text`` (the event's title and summary) is matched against thesis triggers;
+    ``threshold`` applies to theses without a threshold of their own."""
     reached = reach(store, entity_ids, at, max_hops)
     contributions: dict[str, list[ImpactPath]] = {}
 
@@ -172,18 +230,31 @@ def impact(
                     ),
                 )
 
+    exclude = _names(store, entity_ids) if text else []
     hits = []
     for thesis_id, paths in contributions.items():
-        score = round(sum(p.contribution for p in paths), 4)
-        if score < threshold:
+        thesis = store.get_thesis(thesis_id)
+        graph_score = round(sum(p.contribution for p in paths), 4)
+        best, matched = 0.0, None
+        for trigger in thesis.triggers if text else ():
+            value = triggers.match(text or "", trigger.description, exclude)
+            if value > best:
+                best, matched = value, trigger.description
+        score = round(graph_score * materiality * (1 + best), 4)
+        limit = thesis.alert_threshold if thesis.alert_threshold is not None else threshold
+        if score < limit:
             continue
         paths.sort(key=lambda p: -p.contribution)
         hits.append(
             ImpactHit(
                 thesis_id=thesis_id,
-                thesis_title=store.get_thesis(thesis_id).title,
+                thesis_title=thesis.title,
                 score=score,
                 paths=paths[:MAX_PATHS_PER_ALERT],
+                graph_score=graph_score,
+                materiality=materiality,
+                trigger_match=best,
+                matched_trigger=matched,
             )
         )
     hits.sort(key=lambda h: (-h.score, h.thesis_id))
@@ -200,12 +271,20 @@ def ingest_event(
     uri: str | None = None,
     summary: str | None = None,
     payload: dict[str, object] | None = None,
-    threshold: float = DEFAULT_THRESHOLD,
+    threshold: float | None = None,
+    materiality: float | None = None,
 ) -> IngestResult:
     """Record an event and raise alerts on the theses it may affect.
 
-    A repeated event (same URI, or same title and day) creates nothing new.
+    ``materiality`` defaults to an assessment of the source, form and wording;
+    ``threshold`` to the global setting. A repeated event (same URI, or same
+    title and day) creates nothing new.
     """
+    if materiality is None:
+        assessed = assess(source, title, summary, payload)
+        weight, why = assessed.value, assessed.reason
+    else:
+        weight, why = materiality, "set when recorded"
     event, created = store.add_event(
         kind,
         title,
@@ -215,12 +294,34 @@ def ingest_event(
         uri=uri,
         summary=summary,
         payload=dict(payload or {}),
+        materiality=weight,
+        materiality_reason=why,
     )
     result = IngestResult(event=event, created=created)
     if not created:
         return result
-    for hit in impact(store, event.entity_ids, event.occurred_at, threshold=threshold):
-        alert, new = store.upsert_alert(event.id, hit.thesis_id, hit.score, hit.paths)
+    hits = impact(
+        store,
+        event.entity_ids,
+        event.occurred_at,
+        threshold=global_threshold(store) if threshold is None else threshold,
+        text=f"{event.title}. {event.summary or ''}",
+        materiality=event.materiality,
+    )
+    for hit in hits:
+        if any(is_muted(m, event) for m in store.thesis_mutes(hit.thesis_id)):
+            result.muted += 1
+            continue
+        alert, new = store.upsert_alert(
+            event.id,
+            hit.thesis_id,
+            hit.score,
+            hit.paths,
+            graph_score=hit.graph_score,
+            materiality=hit.materiality,
+            trigger_match=hit.trigger_match,
+            matched_trigger=hit.matched_trigger,
+        )
         if new:
             result.alerts.append(alert)
     return result
