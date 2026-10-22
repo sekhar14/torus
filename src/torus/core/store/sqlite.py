@@ -18,7 +18,7 @@ import re
 import sqlite3
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from enum import Enum
 from pathlib import Path
 from types import TracebackType
@@ -31,6 +31,7 @@ from torus.core.errors import (
     NotCurrentError,
     NotFoundError,
 )
+from torus.core.horizon import parse_horizon
 from torus.core.ids import IdGenerator
 from torus.core.models import (
     EVIDENCED_CLAIM_TYPES,
@@ -52,6 +53,7 @@ from torus.core.models import (
     Evidence,
     EvidenceKind,
     ImpactPath,
+    Outcome,
     QueueItem,
     QueueStatus,
     RejectedHypothesis,
@@ -67,6 +69,8 @@ from torus.core.models import (
     ThesisClaim,
     ThesisClaimRole,
     ThesisHistoryEntry,
+    ThesisMute,
+    ThesisOutcome,
     ThesisStatus,
     ThesisTrigger,
     Verdict,
@@ -1070,6 +1074,36 @@ class SQLiteBackend:
             )
             return self.get_relation(new_id)
 
+    def retire_relation(self, relation_id: str, reason: str) -> Relation | None:
+        """Withdraw a relation. If it replaced an earlier version (e.g. research
+        re-recording a starter link), that version is restored; otherwise the link
+        ends. Returns the restored version, or None. History keeps everything."""
+        with self.transaction():
+            current = self.get_relation(relation_id)
+            if current.superseded_at is not None:
+                raise NotCurrentError(f"relation {relation_id} has been superseded")
+            self._conn.execute(
+                "UPDATE relations SET superseded_at = ? WHERE id = ?", (self._now(), current.id)
+            )
+            if current.supersedes_id is None:
+                return None
+            old = self.get_relation(current.supersedes_id)
+            new_id = self._ids.new()
+            self._insert_relation(
+                relation_id=new_id,
+                lineage_id=old.lineage_id,
+                supersedes_id=current.id,
+                src_id=old.src_id,
+                rel=old.rel,
+                dst_id=old.dst_id,
+                confidence=old.confidence,
+                claim_id=old.claim_id,
+                valid_from=to_ts_opt(old.valid_from),
+                valid_to=to_ts_opt(old.valid_to),
+                source=old.source,
+            )
+            return self.get_relation(new_id)
+
     def _insert_relation(
         self,
         *,
@@ -1167,8 +1201,12 @@ class SQLiteBackend:
         risks: Sequence[str] = (),
         triggers: Sequence[tuple[str, str | None]] = (),
         session_id: str | None = None,
+        horizon_date: datetime | None = None,
     ) -> Thesis:
         """Record a thesis linked to claims by role.
+
+        ``horizon_date`` defaults to the ``horizon`` read as a date ("12m" from now,
+        "FY2026" -> end of 2026...).
 
         Claim ids may be any version; the thesis links to the claim *lineage*, so it
         follows later corrections. ``triggers`` are ``(description, entity_id)`` pairs.
@@ -1182,10 +1220,11 @@ class SQLiteBackend:
             if session_id is not None:
                 self.get_session(session_id)
             thesis_id = self._ids.new()
+            due = horizon_date or parse_horizon(horizon, from_ts(now))
             self._conn.execute(
                 "INSERT INTO theses (id, title, statement, stance, horizon, confidence, status,"
-                " subject_entity_id, session_id, created_at, updated_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " subject_entity_id, session_id, created_at, updated_at, horizon_date)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     thesis_id,
                     title,
@@ -1198,6 +1237,7 @@ class SQLiteBackend:
                     session_id,
                     now,
                     now,
+                    to_ts_opt(due),
                 ),
             )
             for role, claim_ids in (
@@ -1486,6 +1526,12 @@ class SQLiteBackend:
                 updated_at=from_ts(r["updated_at"]),
                 claims=tuple(links[r["id"]]),
                 triggers=tuple(triggers[r["id"]]),
+                alert_threshold=r["alert_threshold"],
+                horizon_date=from_ts_opt(r["horizon_date"]),
+                instrument=r["instrument"],
+                entry_price=r["entry_price"],
+                entry_at=from_ts_opt(r["entry_at"]),
+                benchmark=r["benchmark"],
             )
             for r in rows
         ]
@@ -1519,6 +1565,8 @@ class SQLiteBackend:
     ) -> list[RejectedHypothesis]:
         params: list[Any] = [WORKSPACE]
         sql = "SELECT * FROM rejected_hypotheses WHERE workspace = ?"
+        if hypothesis_id is None:
+            sql += " AND withdrawn_at IS NULL"  # withdrawn ones only by id
         if entity_id is not None:
             entity_id = self._live_or_same(entity_id)
             sql += (
@@ -1545,9 +1593,22 @@ class SQLiteBackend:
                     entity_ids=tuple(e["entity_id"] for e in entity_rows),
                     session_id=r["session_id"],
                     recorded_at=from_ts(r["recorded_at"]),
+                    withdrawn_at=from_ts_opt(r["withdrawn_at"]),
                 )
             )
         return result
+
+    def withdraw_hypothesis(self, hypothesis_id: str, reason: str) -> bool:
+        """Stop recalling a rejected hypothesis (kept for history). False if already."""
+        with self.transaction():
+            cursor = self._conn.execute(
+                "UPDATE rejected_hypotheses SET withdrawn_at = ?, withdrawn_reason = ?"
+                " WHERE id = ? AND withdrawn_at IS NULL",
+                (self._now(), reason, hypothesis_id),
+            )
+            if cursor.rowcount == 0 and not self.rejected_hypotheses(hypothesis_id=hypothesis_id):
+                raise NotFoundError("rejected hypothesis", hypothesis_id)
+            return cursor.rowcount > 0
 
     # -- events & alerts ------------------------------------------------------
 
@@ -1561,6 +1622,8 @@ class SQLiteBackend:
         uri: str | None = None,
         summary: str | None = None,
         payload: dict[str, Any] | None = None,
+        materiality: float = 1.0,
+        materiality_reason: str | None = None,
     ) -> tuple[Event, bool]:
         """Record an event; returns (event, created).
 
@@ -1570,6 +1633,8 @@ class SQLiteBackend:
         """
         if not title.strip():
             raise ValueError("event title must not be empty")
+        if not 0.0 <= materiality <= 1.0:
+            raise ValueError(f"materiality must be in [0, 1], got {materiality}")
         basis = uri.strip() if uri else f"{title.strip().casefold()}|{to_ts(occurred_at)[:10]}"
         content_hash = hashlib.sha256(basis.encode("utf-8")).hexdigest()
         with self.transaction():
@@ -1583,8 +1648,8 @@ class SQLiteBackend:
             if created:
                 self._conn.execute(
                     "INSERT INTO events (id, kind, title, summary, uri, source, occurred_at,"
-                    " ingested_at, content_hash, payload_json)"
-                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    " ingested_at, content_hash, payload_json, materiality, materiality_reason)"
+                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (
                         event_id,
                         EventKind(kind).value,
@@ -1596,6 +1661,8 @@ class SQLiteBackend:
                         self._now(),
                         content_hash,
                         json.dumps(payload or {}, sort_keys=True),
+                        materiality,
+                        materiality_reason,
                     ),
                 )
             self._conn.executemany(
@@ -1655,6 +1722,8 @@ class SQLiteBackend:
                 content_hash=r["content_hash"],
                 payload=json.loads(r["payload_json"]),
                 entity_ids=tuple(ents[r["id"]]),
+                materiality=r["materiality"],
+                materiality_reason=r["materiality_reason"],
             )
             for r in rows
         ]
@@ -1675,9 +1744,19 @@ class SQLiteBackend:
         ]
 
     def upsert_alert(
-        self, event_id: str, thesis_id: str, score: float, paths: Sequence[ImpactPath]
+        self,
+        event_id: str,
+        thesis_id: str,
+        score: float,
+        paths: Sequence[ImpactPath],
+        *,
+        graph_score: float | None = None,
+        materiality: float | None = None,
+        trigger_match: float | None = None,
+        matched_trigger: str | None = None,
     ) -> tuple[Alert, bool]:
-        """One alert per (event, thesis); returns (alert, created)."""
+        """One alert per (event, thesis); returns (alert, created). The keyword
+        arguments record how the score was built."""
         with self.transaction():
             self.get_event(event_id)
             self.get_thesis(thesis_id)
@@ -1689,7 +1768,8 @@ class SQLiteBackend:
             alert_id = self._ids.new()
             self._conn.execute(
                 "INSERT INTO alerts (id, event_id, thesis_id, score, paths_json, status,"
-                " created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                " created_at, graph_score, materiality, trigger_match, matched_trigger)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     alert_id,
                     event_id,
@@ -1698,6 +1778,10 @@ class SQLiteBackend:
                     json.dumps([p.model_dump() for p in paths]),
                     AlertStatus.OPEN.value,
                     self._now(),
+                    graph_score,
+                    materiality,
+                    trigger_match,
+                    matched_trigger,
                 ),
             )
             return self.get_alert(alert_id), True
@@ -1781,6 +1865,189 @@ class SQLiteBackend:
                 (final.value, verdict.value, rationale, self._now(), alert_id),
             )
             return self.get_alert(alert_id)
+
+    def set_thesis_horizon(
+        self, thesis_id: str, horizon: str | None, horizon_date: datetime | None = None
+    ) -> Thesis:
+        """Change a thesis's horizon; the date is read from it, counting from now."""
+        with self.transaction():
+            self.get_thesis(thesis_id)
+            due = horizon_date or parse_horizon(horizon, self._clock.now())
+            self._conn.execute(
+                "UPDATE theses SET horizon = ?, horizon_date = ?, updated_at = ? WHERE id = ?",
+                (horizon, to_ts_opt(due), self._now(), thesis_id),
+            )
+            return self.get_thesis(thesis_id)
+
+    def set_thesis_tracking(
+        self,
+        thesis_id: str,
+        instrument: str | None,
+        entry_price: float | None = None,
+        entry_at: datetime | None = None,
+        benchmark: str | None = None,
+    ) -> Thesis:
+        """Track a thesis on the scorecard against a ticker (None stops tracking)."""
+        if entry_price is not None and entry_price <= 0:
+            raise ValueError("entry_price must be positive")
+        with self.transaction():
+            self.get_thesis(thesis_id)
+            self._conn.execute(
+                "UPDATE theses SET instrument = ?, entry_price = ?, entry_at = ?, benchmark = ?"
+                " WHERE id = ?",
+                (
+                    instrument.strip().upper() if instrument else None,
+                    entry_price,
+                    to_ts_opt(entry_at),
+                    benchmark.strip().upper() if benchmark else None,
+                    thesis_id,
+                ),
+            )
+            return self.get_thesis(thesis_id)
+
+    def set_thesis_outcome(
+        self,
+        thesis_id: str,
+        outcome: str,
+        method: str,
+        stance_return: float | None = None,
+        note: str | None = None,
+    ) -> ThesisOutcome:
+        """Record whether a thesis was right. A ``user`` outcome is never replaced
+        by an automatic one."""
+        value = Outcome(outcome)
+        with self.transaction():
+            self.get_thesis(thesis_id)
+            current = self._one(
+                "SELECT method FROM thesis_outcomes WHERE thesis_id = ?", (thesis_id,)
+            )
+            if current and current["method"] == "user" and method != "user":
+                return self.thesis_outcomes([thesis_id])[thesis_id]
+            self._conn.execute(
+                "INSERT INTO thesis_outcomes (thesis_id, outcome, method, decided_at,"
+                " stance_return, note) VALUES (?, ?, ?, ?, ?, ?)"
+                " ON CONFLICT (thesis_id) DO UPDATE SET outcome = excluded.outcome,"
+                " method = excluded.method, decided_at = excluded.decided_at,"
+                " stance_return = excluded.stance_return, note = excluded.note",
+                (thesis_id, value.value, method, self._now(), stance_return, note),
+            )
+            return self.thesis_outcomes([thesis_id])[thesis_id]
+
+    def clear_thesis_outcome(self, thesis_id: str) -> bool:
+        with self.transaction():
+            cursor = self._conn.execute(
+                "DELETE FROM thesis_outcomes WHERE thesis_id = ?", (thesis_id,)
+            )
+            return cursor.rowcount > 0
+
+    def thesis_outcomes(self, thesis_ids: Sequence[str] | None = None) -> dict[str, ThesisOutcome]:
+        params: list[Any] = []
+        sql = "SELECT * FROM thesis_outcomes"
+        if thesis_ids is not None:
+            if not thesis_ids:
+                return {}
+            sql += f" WHERE thesis_id IN ({_placeholders(len(thesis_ids))})"
+            params += list(thesis_ids)
+        return {
+            r["thesis_id"]: ThesisOutcome(
+                thesis_id=r["thesis_id"],
+                outcome=Outcome(r["outcome"]),
+                method=r["method"],
+                decided_at=from_ts(r["decided_at"]),
+                stance_return=r["stance_return"],
+                note=r["note"],
+            )
+            for r in self._all(sql, params)
+        }
+
+    def upsert_prices(self, symbol: str, rows: Sequence[tuple[date, float]], source: str) -> int:
+        """Store daily closes; returns how many rows were written."""
+        symbol = symbol.strip().upper()
+        with self.transaction():
+            self._conn.executemany(
+                "INSERT INTO prices (symbol, day, close, source) VALUES (?, ?, ?, ?)"
+                " ON CONFLICT (symbol, day) DO UPDATE SET close = excluded.close,"
+                " source = excluded.source",
+                [(symbol, day.isoformat(), float(close), source) for day, close in rows],
+            )
+        return len(rows)
+
+    def prices(
+        self, symbol: str, start: date | None = None, end: date | None = None
+    ) -> list[tuple[date, float]]:
+        params: list[Any] = [symbol.strip().upper()]
+        sql = "SELECT day, close FROM prices WHERE symbol = ?"
+        if start is not None:
+            sql += " AND day >= ?"
+            params.append(start.isoformat())
+        if end is not None:
+            sql += " AND day <= ?"
+            params.append(end.isoformat())
+        rows = self._all(sql + " ORDER BY day", params)
+        return [(date.fromisoformat(r["day"]), float(r["close"])) for r in rows]
+
+    def set_alert_threshold(self, thesis_id: str, threshold: float | None) -> Thesis:
+        """Minimum alert score for this thesis (None: the global setting)."""
+        if threshold is not None and not 0.0 <= threshold <= 10.0:
+            raise ValueError(f"alert threshold must be in [0, 10], got {threshold}")
+        with self.transaction():
+            self.get_thesis(thesis_id)
+            self._conn.execute(
+                "UPDATE theses SET alert_threshold = ? WHERE id = ?", (threshold, thesis_id)
+            )
+            return self.get_thesis(thesis_id)
+
+    def add_thesis_mute(
+        self,
+        thesis_id: str,
+        entity_id: str | None = None,
+        event_kind: EventKind | None = None,
+        form: str | None = None,
+        until: datetime | None = None,
+        note: str | None = None,
+    ) -> ThesisMute:
+        """Stop alerting this thesis for events matching every given field."""
+        if entity_id is None and event_kind is None and not form:
+            raise ValueError("a mute needs an entity, an event kind or a form")
+        with self.transaction():
+            self.get_thesis(thesis_id)
+            if entity_id is not None:
+                entity_id = self.live_entity_id(entity_id)
+            mute_id = self._ids.new()
+            self._conn.execute(
+                "INSERT INTO thesis_mutes (id, thesis_id, entity_id, event_kind, form, until,"
+                " note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    mute_id,
+                    thesis_id,
+                    entity_id,
+                    EventKind(event_kind).value if event_kind is not None else None,
+                    form.strip().upper() if form else None,
+                    to_ts_opt(until),
+                    note,
+                    self._now(),
+                ),
+            )
+            row = self._one("SELECT * FROM thesis_mutes WHERE id = ?", (mute_id,))
+            assert row is not None
+            return _mute(row)
+
+    def remove_thesis_mute(self, mute_id: str) -> bool:
+        with self.transaction():
+            cursor = self._conn.execute(
+                "UPDATE thesis_mutes SET removed_at = ? WHERE id = ? AND removed_at IS NULL",
+                (self._now(), mute_id),
+            )
+            return cursor.rowcount > 0
+
+    def thesis_mutes(self, thesis_id: str | None = None) -> list[ThesisMute]:
+        """Current (not removed) mutes, including expired ones."""
+        params: list[Any] = []
+        sql = "SELECT * FROM thesis_mutes WHERE removed_at IS NULL"
+        if thesis_id is not None:
+            sql += " AND thesis_id = ?"
+            params.append(thesis_id)
+        return [_mute(r) for r in self._all(sql + " ORDER BY created_at, id", params)]
 
     # -- watchers -----------------------------------------------------------------
 
@@ -1969,6 +2236,16 @@ class SQLiteBackend:
                 f"UPDATE {table} SET session_id = ? WHERE id = ?", (session_id, object_id)
             )
             return "adopted"
+
+    def recent_record_sessions(self, limit: int = 3) -> list[tuple[str, datetime]]:
+        """(session id, time of its last record) for the sessions that recorded most
+        recently, newest first."""
+        rows = self._all(
+            "SELECT session_id, max(at) AS last_at FROM session_records"
+            " GROUP BY session_id ORDER BY last_at DESC LIMIT ?",
+            (limit,),
+        )
+        return [(r["session_id"], from_ts(r["last_at"])) for r in rows]
 
     def session_records(self, session_id: str) -> list[tuple[str, str]]:
         """(object_type, object_id) pairs the agent recorded during a session."""
@@ -2226,6 +2503,19 @@ def _history(row: sqlite3.Row) -> ThesisHistoryEntry:
     )
 
 
+def _mute(row: sqlite3.Row) -> ThesisMute:
+    return ThesisMute(
+        id=row["id"],
+        thesis_id=row["thesis_id"],
+        entity_id=row["entity_id"],
+        event_kind=EventKind(row["event_kind"]) if row["event_kind"] else None,
+        form=row["form"],
+        until=from_ts_opt(row["until"]),
+        note=row["note"],
+        created_at=from_ts(row["created_at"]),
+    )
+
+
 def _source_candidate(row: sqlite3.Row) -> SourceCandidate:
     return SourceCandidate(
         id=row["id"],
@@ -2272,4 +2562,8 @@ def _alert(row: sqlite3.Row) -> Alert:
         rationale=row["rationale"],
         created_at=from_ts(row["created_at"]),
         resolved_at=from_ts_opt(row["resolved_at"]),
+        graph_score=row["graph_score"],
+        materiality=row["materiality"],
+        trigger_match=row["trigger_match"],
+        matched_trigger=row["matched_trigger"],
     )

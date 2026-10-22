@@ -8,9 +8,10 @@ from torus.core.starter import available_packs, load_pack, seed
 from torus.core.store import SQLiteBackend
 
 
-def test_semis_pack_is_well_formed() -> None:
-    assert "semis" in available_packs()
-    pack = load_pack("semis")
+@pytest.mark.parametrize("name", ["semis", "software", "banks", "energy", "pharma"])
+def test_pack_is_well_formed(name: str) -> None:
+    assert name in available_packs()
+    pack = load_pack(name)
     refs = {e["ref"] for e in pack["entities"]}
     assert len(refs) == len(pack["entities"])
     seen = set()

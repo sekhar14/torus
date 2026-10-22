@@ -19,3 +19,7 @@ evidence and relations the researcher didn't record.
 
 Don't distill sessions yourself in the main conversation. The curator exists so
 this work runs on a cheaper model.
+
+To have this happen without asking, the user can run
+`torus config set auto_distill on`: a background curator then starts when a
+session ends. `off` stops Torus from mentioning queued sessions at all.

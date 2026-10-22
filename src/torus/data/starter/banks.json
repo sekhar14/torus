@@ -1,0 +1,333 @@
+{
+  "name": "banks",
+  "version": 1,
+  "title": "US banks and payments",
+  "description": "Large US banks, card networks and issuers, payment processors and bank technology vendors: which networks the big issuers use, and who competes with whom. A starting point to verify and extend, not a source of truth.",
+  "entities": [
+    {
+      "ref": "JPM",
+      "ticker": "JPM",
+      "name": "JPMorgan Chase & Co",
+      "aliases": [
+        "JPMorgan",
+        "Chase"
+      ]
+    },
+    {
+      "ref": "BAC",
+      "ticker": "BAC",
+      "name": "Bank of America Corp",
+      "aliases": [
+        "Bank of America"
+      ]
+    },
+    {
+      "ref": "C",
+      "ticker": "C",
+      "name": "Citigroup Inc",
+      "aliases": [
+        "Citi",
+        "Citigroup"
+      ]
+    },
+    {
+      "ref": "WFC",
+      "ticker": "WFC",
+      "name": "Wells Fargo & Co",
+      "aliases": [
+        "Wells Fargo"
+      ]
+    },
+    {
+      "ref": "GS",
+      "ticker": "GS",
+      "name": "Goldman Sachs Group Inc",
+      "aliases": [
+        "Goldman Sachs",
+        "Goldman"
+      ]
+    },
+    {
+      "ref": "MS",
+      "ticker": "MS",
+      "name": "Morgan Stanley"
+    },
+    {
+      "ref": "SCHW",
+      "ticker": "SCHW",
+      "name": "Charles Schwab Corp",
+      "aliases": [
+        "Schwab"
+      ]
+    },
+    {
+      "ref": "USB",
+      "ticker": "USB",
+      "name": "US Bancorp",
+      "aliases": [
+        "U.S. Bank"
+      ]
+    },
+    {
+      "ref": "PNC",
+      "ticker": "PNC",
+      "name": "PNC Financial Services Group Inc",
+      "aliases": [
+        "PNC"
+      ]
+    },
+    {
+      "ref": "COF",
+      "ticker": "COF",
+      "name": "Capital One Financial Corp",
+      "aliases": [
+        "Capital One"
+      ]
+    },
+    {
+      "ref": "AXP",
+      "ticker": "AXP",
+      "name": "American Express Co",
+      "aliases": [
+        "American Express",
+        "Amex"
+      ]
+    },
+    {
+      "ref": "V",
+      "ticker": "V",
+      "name": "Visa Inc",
+      "aliases": [
+        "Visa"
+      ]
+    },
+    {
+      "ref": "MA",
+      "ticker": "MA",
+      "name": "Mastercard Inc",
+      "aliases": [
+        "Mastercard"
+      ]
+    },
+    {
+      "ref": "PYPL",
+      "ticker": "PYPL",
+      "name": "PayPal Holdings Inc",
+      "aliases": [
+        "PayPal"
+      ]
+    },
+    {
+      "ref": "XYZ",
+      "ticker": "XYZ",
+      "name": "Block Inc",
+      "aliases": [
+        "Block",
+        "Square",
+        "Cash App"
+      ]
+    },
+    {
+      "ref": "FISV",
+      "ticker": "FISV",
+      "name": "Fiserv Inc",
+      "aliases": [
+        "Fiserv",
+        "Clover"
+      ]
+    },
+    {
+      "ref": "FIS",
+      "ticker": "FIS",
+      "name": "Fidelity National Information Services Inc",
+      "aliases": [
+        "FIS"
+      ]
+    },
+    {
+      "ref": "JKHY",
+      "ticker": "JKHY",
+      "name": "Jack Henry & Associates Inc",
+      "aliases": [
+        "Jack Henry"
+      ]
+    }
+  ],
+  "relations": [
+    [
+      "V",
+      "SUPPLIES",
+      "JPM",
+      0.8,
+      "card network for most Chase credit and debit cards"
+    ],
+    [
+      "V",
+      "SUPPLIES",
+      "BAC",
+      0.7,
+      "card network for many Bank of America cards"
+    ],
+    [
+      "V",
+      "SUPPLIES",
+      "WFC",
+      0.7,
+      "card network for many Wells Fargo cards"
+    ],
+    [
+      "V",
+      "SUPPLIES",
+      "USB",
+      0.7,
+      "card network for many U.S. Bank cards"
+    ],
+    [
+      "V",
+      "SUPPLIES",
+      "COF",
+      0.6,
+      "card network for Capital One credit cards"
+    ],
+    [
+      "MA",
+      "SUPPLIES",
+      "C",
+      0.8,
+      "card network for many Citi cards"
+    ],
+    [
+      "MA",
+      "SUPPLIES",
+      "COF",
+      0.6,
+      "card network for Capital One credit cards"
+    ],
+    [
+      "MA",
+      "SUPPLIES",
+      "JPM",
+      0.5,
+      "card network for some Chase cards"
+    ],
+    [
+      "MA",
+      "SUPPLIES",
+      "BAC",
+      0.5,
+      "card network for some Bank of America cards"
+    ],
+    [
+      "V",
+      "COMPETES_WITH",
+      "MA",
+      0.95,
+      "card networks"
+    ],
+    [
+      "AXP",
+      "COMPETES_WITH",
+      "V",
+      0.7,
+      "card networks"
+    ],
+    [
+      "AXP",
+      "COMPETES_WITH",
+      "MA",
+      0.7,
+      "card networks"
+    ],
+    [
+      "AXP",
+      "COMPETES_WITH",
+      "COF",
+      0.6,
+      "credit card issuing"
+    ],
+    [
+      "JPM",
+      "COMPETES_WITH",
+      "BAC",
+      0.9,
+      "consumer and commercial banking"
+    ],
+    [
+      "JPM",
+      "COMPETES_WITH",
+      "C",
+      0.8,
+      "commercial and investment banking"
+    ],
+    [
+      "BAC",
+      "COMPETES_WITH",
+      "WFC",
+      0.9,
+      "consumer banking"
+    ],
+    [
+      "GS",
+      "COMPETES_WITH",
+      "MS",
+      0.9,
+      "investment banking and trading"
+    ],
+    [
+      "JPM",
+      "COMPETES_WITH",
+      "GS",
+      0.7,
+      "investment banking and trading"
+    ],
+    [
+      "MS",
+      "COMPETES_WITH",
+      "SCHW",
+      0.8,
+      "wealth management and brokerage"
+    ],
+    [
+      "USB",
+      "COMPETES_WITH",
+      "PNC",
+      0.8,
+      "regional banking"
+    ],
+    [
+      "PYPL",
+      "COMPETES_WITH",
+      "XYZ",
+      0.8,
+      "digital wallets and merchant payments"
+    ],
+    [
+      "FISV",
+      "COMPETES_WITH",
+      "XYZ",
+      0.8,
+      "small-business point of sale (Clover vs Square)"
+    ],
+    [
+      "FISV",
+      "COMPETES_WITH",
+      "FIS",
+      0.9,
+      "bank core processing and payments"
+    ],
+    [
+      "FIS",
+      "COMPETES_WITH",
+      "JKHY",
+      0.8,
+      "bank core processing"
+    ],
+    [
+      "FISV",
+      "COMPETES_WITH",
+      "JKHY",
+      0.8,
+      "bank core processing"
+    ]
+  ]
+}
