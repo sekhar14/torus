@@ -43,7 +43,19 @@ class Check:
 # -- doctor -------------------------------------------------------------------------
 
 
-def doctor(p: Paths, scheduler: Scheduler | None = None) -> list[Check]:
+def doctor(
+    p: Paths,
+    scheduler: Scheduler | None = None,
+    claude_config: Path | None = None,
+    codex_config: Path | None = None,
+) -> list[Check]:
+    from torus.setup import (
+        claude_desktop_config_path,
+        codex_config_path,
+        inspect_claude_desktop,
+        inspect_codex,
+    )
+
     checks: list[Check] = []
 
     def add(name: str, level: Level, detail: str) -> None:
@@ -167,6 +179,12 @@ def doctor(p: Paths, scheduler: Scheduler | None = None) -> list[Check]:
         )
     else:
         add("hooks", Level.INFO, "no hook runs logged yet")
+
+    cd_level, cd_detail = inspect_claude_desktop(claude_config or claude_desktop_config_path())
+    add("Claude Desktop", Level(cd_level), cd_detail)
+
+    cx_level, cx_detail = inspect_codex(codex_config or codex_config_path())
+    add("Codex", Level(cx_level), cx_detail)
     return checks
 
 

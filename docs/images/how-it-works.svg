@@ -1,0 +1,146 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 470" width="960" height="470" role="img" aria-labelledby="t d">
+<title id="t">How Torus works</title>
+<desc id="d">A loop: you ask about a company; Torus recalls earlier research; Claude researches and records sourced claims and theses in the Torus graph. While you're away, Torus watches new SEC filings and news, raises an alert on the thesis it affects, and you review it; the graph is updated and the next session starts from it.</desc>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path class="arrowhead" d="M0,0 L10,5 L0,10 z"/>
+  </marker>
+  <radialGradient id="halo">
+    <stop offset="0" class="halo0"/>
+    <stop offset="1" class="halo1"/>
+  </radialGradient>
+</defs>
+<style>
+  svg {
+    --text: #1f2328; --muted: #59636e; --line: #d1d9e0; --card: #ffffff;
+    --work: #0969da; --away: #8250df; --graph: #1a7f37; --graph-bg: #dafbe1;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    svg {
+      --text: #f0f6fc; --muted: #9198a1; --line: #3d444d; --card: #151b23;
+      --work: #4493f8; --away: #ab7df8; --graph: #3fb950; --graph-bg: #12261e;
+    }
+  }
+  .track { fill: none; stroke: var(--line); stroke-width: 2; stroke-dasharray: 2 7; stroke-linecap: round; }
+  .chev { fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: .7; }
+  .box { fill: var(--card); stroke: var(--line); stroke-width: 1.5; }
+  .glow { fill: none; stroke-width: 2.5; opacity: 0; animation: lit 14.0s ease-in-out infinite; }
+  .work .glow, .work .bar { stroke: var(--work); fill: var(--work); }
+  .away .glow, .away .bar { stroke: var(--away); fill: var(--away); }
+  .glow { fill-opacity: .07; }
+  .title { fill: var(--text); font-size: 17px; font-weight: 600; }
+  .sub { fill: var(--muted); font-size: 13px; }
+  .section { fill: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; }
+  .work-c { fill: var(--work); } .away-c { fill: var(--away); }
+  .spoke { stroke: var(--line); stroke-width: 1.5; stroke-dasharray: 4 4; }
+  .arrowhead { fill: var(--muted); }
+  .graph-box { fill: var(--graph-bg); stroke: var(--graph); stroke-width: 2; }
+  .graph-title { fill: var(--text); font-size: 19px; font-weight: 700; }
+  .graph-sub { fill: var(--muted); font-size: 13px; }
+  .pulse { fill: none; stroke: var(--graph); stroke-width: 2; opacity: 0;
+            transform-origin: 480px 250px; animation: pulse 14.0s ease-out infinite; }
+  .dot, .dot-halo { animation: hue 14.0s step-end infinite; }
+  .dot-halo { opacity: .2; }
+  .ask rect { fill: var(--card); stroke: var(--line); stroke-width: 1.5; }
+  .ask .q { fill: var(--text); font-size: 14px; font-style: italic; }
+  .ask .who { fill: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+  @keyframes lit {
+    0% { opacity: 0; } 3% { opacity: 1; } 14% { opacity: 1; } 19% { opacity: 0; } 100% { opacity: 0; }
+  }
+  @keyframes hue {
+    0% { fill: var(--work); } 50% { fill: var(--away); }
+  }
+  @keyframes pulse {
+    0%, 33.3% { opacity: 0; transform: scale(1); }
+    34.3% { opacity: .9; transform: scale(1); }
+    45.3% { opacity: 0; transform: scale(1.18); }
+    83.3% { opacity: 0; transform: scale(1); }
+    84.3% { opacity: .9; transform: scale(1); }
+    95.3%, 100% { opacity: 0; transform: scale(1.18); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .glow, .pulse { animation: none; }
+    .mover { display: none; }
+  }
+</style>
+
+<path id="ring" class="track" d="M252.5,131.1 L254.7,130.2 L256.9,129.2 L259.2,128.3 L261.5,127.4 L263.7,126.5 L266.0,125.7 L268.3,124.8 L270.7,123.9 L273.0,123.1 L275.4,122.2 L277.8,121.4 L280.2,120.6 L282.6,119.7 L285.0,118.9 L287.4,118.1 L289.9,117.4 L292.3,116.6 L294.8,115.8 L297.3,115.1 L299.8,114.3 L302.4,113.6 L304.9,112.9 L307.4,112.1 L310.0,111.4 L312.6,110.7 L315.2,110.1 L317.8,109.4 L320.4,108.7 L323.0,108.1 L325.6,107.4 L328.3,106.8 L331.0,106.2 L333.6,105.6 L336.3,105.0 L339.0,104.4 L341.7,103.8 L344.4,103.3 L347.2,102.7 L349.9,102.2 L352.6,101.7 L355.4,101.1 L358.2,100.6 L360.9,100.1 L363.7,99.6 L366.5,99.2 L369.3,98.7 L372.1,98.3 L374.9,97.8 L377.8,97.4 L380.6,97.0 L383.4,96.6 L386.3,96.2 L389.1,95.8 L392.0,95.5 L394.9,95.1 L397.7,94.8 L400.6,94.4 L403.5,94.1 L406.4,93.8 L409.3,93.5 L412.2,93.2 L415.1,92.9 L418.0,92.7 L421.0,92.4 L423.9,92.2 L426.8,92.0 L429.7,91.8 L432.7,91.6 L435.6,91.4 L438.6,91.2 L441.5,91.0 L444.5,90.9 L447.4,90.7 L450.4,90.6 L453.3,90.5 L456.3,90.4 L459.2,90.3 L462.2,90.2 L465.2,90.2 L468.1,90.1 L471.1,90.1 L474.1,90.0 L477.0,90.0 L480.0,90.0 L483.0,90.0 L485.9,90.0 L488.9,90.1 L491.9,90.1 L494.8,90.2 L497.8,90.2 L500.8,90.3 L503.7,90.4 L506.7,90.5 L509.6,90.6 L512.6,90.7 L515.5,90.9 L518.5,91.0 L521.4,91.2 L524.4,91.4 L527.3,91.6 L530.3,91.8 L533.2,92.0 L536.1,92.2 L539.0,92.4 L542.0,92.7 L544.9,92.9 L547.8,93.2 L550.7,93.5 L553.6,93.8 L556.5,94.1 L559.4,94.4 L562.3,94.8 L565.1,95.1 L568.0,95.5 L570.9,95.8 L573.7,96.2 L576.6,96.6 L579.4,97.0 L582.2,97.4 L585.1,97.8 L587.9,98.3 L590.7,98.7 L593.5,99.2 L596.3,99.6 L599.1,100.1 L601.8,100.6 L604.6,101.1 L607.4,101.7 L610.1,102.2 L612.8,102.7 L615.6,103.3 L618.3,103.8 L621.0,104.4 L623.7,105.0 L626.4,105.6 L629.0,106.2 L631.7,106.8 L634.4,107.4 L637.0,108.1 L639.6,108.7 L642.2,109.4 L644.8,110.1 L647.4,110.7 L650.0,111.4 L652.6,112.1 L655.1,112.9 L657.6,113.6 L660.2,114.3 L662.7,115.1 L665.2,115.8 L667.7,116.6 L670.1,117.4 L672.6,118.1 L675.0,118.9 L677.4,119.7 L679.8,120.6 L682.2,121.4 L684.6,122.2 L687.0,123.1 L689.3,123.9 L691.7,124.8 L694.0,125.7 L696.3,126.5 L698.5,127.4 L700.8,128.3 L703.1,129.2 L705.3,130.2 L707.5,131.1 L709.7,132.0 L711.9,133.0 L714.0,133.9 L716.2,134.9 L718.3,135.9 L720.4,136.9 L722.5,137.9 L724.6,138.9 L726.6,139.9 L728.7,140.9 L730.7,141.9 L732.7,142.9 L734.6,144.0 L736.6,145.0 L738.5,146.1 L740.5,147.2 L742.4,148.2 L744.2,149.3 L746.1,150.4 L747.9,151.5 L749.7,152.6 L751.5,153.7 L753.3,154.8 L755.1,156.0 L756.8,157.1 L758.5,158.2 L760.2,159.4 L761.9,160.5 L763.5,161.7 L765.1,162.9 L766.8,164.0 L768.3,165.2 L769.9,166.4 L771.4,167.6 L773.0,168.8 L774.4,170.0 L775.9,171.2 L777.4,172.4 L778.8,173.7 L780.2,174.9 L781.6,176.1 L782.9,177.4 L784.3,178.6 L785.6,179.9 L786.9,181.1 L788.1,182.4 L789.4,183.6 L790.6,184.9 L791.8,186.2 L793.0,187.5 L794.1,188.8 L795.2,190.1 L796.3,191.4 L797.4,192.7 L798.5,194.0 L799.5,195.3 L800.5,196.6 L801.5,197.9 L802.4,199.2 L803.4,200.6 L804.3,201.9 L805.1,203.2 L806.0,204.6 L806.8,205.9 L807.6,207.2 L808.4,208.6 L809.2,209.9 L809.9,211.3 L810.6,212.6 L811.3,214.0 L811.9,215.4 L812.6,216.7 L813.2,218.1 L813.8,219.5 L814.3,220.8 L814.8,222.2 L815.3,223.6 L815.8,225.0 L816.3,226.4 L816.7,227.7 L817.1,229.1 L817.5,230.5 L817.8,231.9 L818.1,233.3 L818.4,234.7 L818.7,236.1 L819.0,237.4 L819.2,238.8 L819.4,240.2 L819.5,241.6 L819.7,243.0 L819.8,244.4 L819.9,245.8 L819.9,247.2 L820.0,248.6 L820.0,250.0 L820.0,251.4 L819.9,252.8 L819.9,254.2 L819.8,255.6 L819.7,257.0 L819.5,258.4 L819.4,259.8 L819.2,261.2 L819.0,262.6 L818.7,263.9 L818.4,265.3 L818.1,266.7 L817.8,268.1 L817.5,269.5 L817.1,270.9 L816.7,272.3 L816.3,273.6 L815.8,275.0 L815.3,276.4 L814.8,277.8 L814.3,279.2 L813.8,280.5 L813.2,281.9 L812.6,283.3 L811.9,284.6 L811.3,286.0 L810.6,287.4 L809.9,288.7 L809.2,290.1 L808.4,291.4 L807.6,292.8 L806.8,294.1 L806.0,295.4 L805.1,296.8 L804.3,298.1 L803.4,299.4 L802.4,300.8 L801.5,302.1 L800.5,303.4 L799.5,304.7 L798.5,306.0 L797.4,307.3 L796.3,308.6 L795.2,309.9 L794.1,311.2 L793.0,312.5 L791.8,313.8 L790.6,315.1 L789.4,316.4 L788.1,317.6 L786.9,318.9 L785.6,320.1 L784.3,321.4 L782.9,322.6 L781.6,323.9 L780.2,325.1 L778.8,326.3 L777.4,327.6 L775.9,328.8 L774.4,330.0 L773.0,331.2 L771.4,332.4 L769.9,333.6 L768.3,334.8 L766.8,336.0 L765.1,337.1 L763.5,338.3 L761.9,339.5 L760.2,340.6 L758.5,341.8 L756.8,342.9 L755.1,344.0 L753.3,345.2 L751.5,346.3 L749.7,347.4 L747.9,348.5 L746.1,349.6 L744.2,350.7 L742.4,351.8 L740.5,352.8 L738.5,353.9 L736.6,355.0 L734.6,356.0 L732.7,357.1 L730.7,358.1 L728.7,359.1 L726.6,360.1 L724.6,361.1 L722.5,362.1 L720.4,363.1 L718.3,364.1 L716.2,365.1 L714.0,366.1 L711.9,367.0 L709.7,368.0 L707.5,368.9 L705.3,369.8 L703.1,370.8 L700.8,371.7 L698.5,372.6 L696.3,373.5 L694.0,374.3 L691.7,375.2 L689.3,376.1 L687.0,376.9 L684.6,377.8 L682.2,378.6 L679.8,379.4 L677.4,380.3 L675.0,381.1 L672.6,381.9 L670.1,382.6 L667.7,383.4 L665.2,384.2 L662.7,384.9 L660.2,385.7 L657.6,386.4 L655.1,387.1 L652.6,387.9 L650.0,388.6 L647.4,389.3 L644.8,389.9 L642.2,390.6 L639.6,391.3 L637.0,391.9 L634.4,392.6 L631.7,393.2 L629.0,393.8 L626.4,394.4 L623.7,395.0 L621.0,395.6 L618.3,396.2 L615.6,396.7 L612.8,397.3 L610.1,397.8 L607.4,398.3 L604.6,398.9 L601.8,399.4 L599.1,399.9 L596.3,400.4 L593.5,400.8 L590.7,401.3 L587.9,401.7 L585.1,402.2 L582.2,402.6 L579.4,403.0 L576.6,403.4 L573.7,403.8 L570.9,404.2 L568.0,404.5 L565.1,404.9 L562.3,405.2 L559.4,405.6 L556.5,405.9 L553.6,406.2 L550.7,406.5 L547.8,406.8 L544.9,407.1 L542.0,407.3 L539.0,407.6 L536.1,407.8 L533.2,408.0 L530.3,408.2 L527.3,408.4 L524.4,408.6 L521.4,408.8 L518.5,409.0 L515.5,409.1 L512.6,409.3 L509.6,409.4 L506.7,409.5 L503.7,409.6 L500.8,409.7 L497.8,409.8 L494.8,409.8 L491.9,409.9 L488.9,409.9 L485.9,410.0 L483.0,410.0 L480.0,410.0 L477.0,410.0 L474.1,410.0 L471.1,409.9 L468.1,409.9 L465.2,409.8 L462.2,409.8 L459.2,409.7 L456.3,409.6 L453.3,409.5 L450.4,409.4 L447.4,409.3 L444.5,409.1 L441.5,409.0 L438.6,408.8 L435.6,408.6 L432.7,408.4 L429.7,408.2 L426.8,408.0 L423.9,407.8 L421.0,407.6 L418.0,407.3 L415.1,407.1 L412.2,406.8 L409.3,406.5 L406.4,406.2 L403.5,405.9 L400.6,405.6 L397.7,405.2 L394.9,404.9 L392.0,404.5 L389.1,404.2 L386.3,403.8 L383.4,403.4 L380.6,403.0 L377.8,402.6 L374.9,402.2 L372.1,401.7 L369.3,401.3 L366.5,400.8 L363.7,400.4 L360.9,399.9 L358.2,399.4 L355.4,398.9 L352.6,398.3 L349.9,397.8 L347.2,397.3 L344.4,396.7 L341.7,396.2 L339.0,395.6 L336.3,395.0 L333.6,394.4 L331.0,393.8 L328.3,393.2 L325.6,392.6 L323.0,391.9 L320.4,391.3 L317.8,390.6 L315.2,389.9 L312.6,389.3 L310.0,388.6 L307.4,387.9 L304.9,387.1 L302.4,386.4 L299.8,385.7 L297.3,384.9 L294.8,384.2 L292.3,383.4 L289.9,382.6 L287.4,381.9 L285.0,381.1 L282.6,380.3 L280.2,379.4 L277.8,378.6 L275.4,377.8 L273.0,376.9 L270.7,376.1 L268.3,375.2 L266.0,374.3 L263.7,373.5 L261.5,372.6 L259.2,371.7 L256.9,370.8 L254.7,369.8 L252.5,368.9 L250.3,368.0 L248.1,367.0 L246.0,366.1 L243.8,365.1 L241.7,364.1 L239.6,363.1 L237.5,362.1 L235.4,361.1 L233.4,360.1 L231.3,359.1 L229.3,358.1 L227.3,357.1 L225.4,356.0 L223.4,355.0 L221.5,353.9 L219.5,352.8 L217.6,351.8 L215.8,350.7 L213.9,349.6 L212.1,348.5 L210.3,347.4 L208.5,346.3 L206.7,345.2 L204.9,344.0 L203.2,342.9 L201.5,341.8 L199.8,340.6 L198.1,339.5 L196.5,338.3 L194.9,337.1 L193.2,336.0 L191.7,334.8 L190.1,333.6 L188.6,332.4 L187.0,331.2 L185.6,330.0 L184.1,328.8 L182.6,327.6 L181.2,326.3 L179.8,325.1 L178.4,323.9 L177.1,322.6 L175.7,321.4 L174.4,320.1 L173.1,318.9 L171.9,317.6 L170.6,316.4 L169.4,315.1 L168.2,313.8 L167.0,312.5 L165.9,311.2 L164.8,309.9 L163.7,308.6 L162.6,307.3 L161.5,306.0 L160.5,304.7 L159.5,303.4 L158.5,302.1 L157.6,300.8 L156.6,299.4 L155.7,298.1 L154.9,296.8 L154.0,295.4 L153.2,294.1 L152.4,292.8 L151.6,291.4 L150.8,290.1 L150.1,288.7 L149.4,287.4 L148.7,286.0 L148.1,284.6 L147.4,283.3 L146.8,281.9 L146.2,280.5 L145.7,279.2 L145.2,277.8 L144.7,276.4 L144.2,275.0 L143.7,273.6 L143.3,272.3 L142.9,270.9 L142.5,269.5 L142.2,268.1 L141.9,266.7 L141.6,265.3 L141.3,263.9 L141.0,262.6 L140.8,261.2 L140.6,259.8 L140.5,258.4 L140.3,257.0 L140.2,255.6 L140.1,254.2 L140.1,252.8 L140.0,251.4 L140.0,250.0 L140.0,248.6 L140.1,247.2 L140.1,245.8 L140.2,244.4 L140.3,243.0 L140.5,241.6 L140.6,240.2 L140.8,238.8 L141.0,237.4 L141.3,236.1 L141.6,234.7 L141.9,233.3 L142.2,231.9 L142.5,230.5 L142.9,229.1 L143.3,227.7 L143.7,226.4 L144.2,225.0 L144.7,223.6 L145.2,222.2 L145.7,220.8 L146.2,219.5 L146.8,218.1 L147.4,216.7 L148.1,215.4 L148.7,214.0 L149.4,212.6 L150.1,211.3 L150.8,209.9 L151.6,208.6 L152.4,207.2 L153.2,205.9 L154.0,204.6 L154.9,203.2 L155.7,201.9 L156.6,200.6 L157.6,199.2 L158.5,197.9 L159.5,196.6 L160.5,195.3 L161.5,194.0 L162.6,192.7 L163.7,191.4 L164.8,190.1 L165.9,188.8 L167.0,187.5 L168.2,186.2 L169.4,184.9 L170.6,183.6 L171.9,182.4 L173.1,181.1 L174.4,179.9 L175.7,178.6 L177.1,177.4 L178.4,176.1 L179.8,174.9 L181.2,173.7 L182.6,172.4 L184.1,171.2 L185.6,170.0 L187.0,168.8 L188.6,167.6 L190.1,166.4 L191.7,165.2 L193.2,164.0 L194.9,162.9 L196.5,161.7 L198.1,160.5 L199.8,159.4 L201.5,158.2 L203.2,157.1 L204.9,156.0 L206.7,154.8 L208.5,153.7 L210.3,152.6 L212.1,151.5 L213.9,150.4 L215.8,149.3 L217.6,148.2 L219.5,147.2 L221.5,146.1 L223.4,145.0 L225.4,144.0 L227.3,142.9 L229.3,141.9 L231.3,140.9 L233.4,139.9 L235.4,138.9 L237.5,137.9 L239.6,136.9 L241.7,135.9 L243.8,134.9 L246.0,133.9 L248.1,133.0 L250.3,132.0 L252.5,131.1 Z"/>
+<path class="chev" d="M-6,-6 L4,0 L-6,6" transform="translate(358.2,100.6) rotate(-10.2)"/><path class="chev" d="M-6,-6 L4,0 L-6,6" transform="translate(601.8,100.6) rotate(10.2)"/><path class="chev" d="M-6,-6 L4,0 L-6,6" transform="translate(820.0,250.0) rotate(90.0)"/><path class="chev" d="M-6,-6 L4,0 L-6,6" transform="translate(601.8,399.4) rotate(169.8)"/><path class="chev" d="M-6,-6 L4,0 L-6,6" transform="translate(358.2,399.4) rotate(-169.8)"/><path class="chev" d="M-6,-6 L4,0 L-6,6" transform="translate(140.0,250.0) rotate(-90.0)"/>
+<line class="spoke" x1="636.7" y1="168.1" x2="575.7" y2="200.0" marker-end="url(#arrow)"/><line class="spoke" x1="323.3" y1="331.9" x2="384.3" y2="300.0" marker-end="url(#arrow)"/><line class="spoke" x1="384.3" y1="200.0" x2="323.3" y2="168.1" marker-end="url(#arrow)"/><line class="spoke" x1="575.7" y1="300.0" x2="636.7" y2="331.9" marker-end="url(#arrow)"/>
+
+<text class="section work-c" x="480" y="172" text-anchor="middle">while you research</text>
+<text class="section away-c" x="480" y="340" text-anchor="middle">while you're away</text>
+
+<rect class="pulse" x="375.0" y="208.0" width="210" height="84" rx="16"/>
+<rect class="graph-box" x="375.0" y="208.0" width="210" height="84" rx="16"/>
+<text class="graph-title" x="480" y="246" text-anchor="middle">Torus graph</text>
+<text class="graph-sub" x="480" y="270" text-anchor="middle">local SQLite · full history</text>
+
+<g class="mover">
+  <circle class="dot-halo" r="14">
+    <animateMotion dur="14.0s" repeatCount="indefinite" calcMode="linear" keyPoints="0.0000;0.1434;0.2869;0.5000;0.6434;0.7869;1.0000" keyTimes="0.0000;0.1667;0.3333;0.5000;0.6667;0.8333;1.0000"><mpath href="#ring"/></animateMotion>
+  </circle>
+  <circle class="dot" r="6">
+    <animateMotion dur="14.0s" repeatCount="indefinite" calcMode="linear" keyPoints="0.0000;0.1434;0.2869;0.5000;0.6434;0.7869;1.0000" keyTimes="0.0000;0.1667;0.3333;0.5000;0.6667;0.8333;1.0000"><mpath href="#ring"/></animateMotion>
+  </circle>
+</g>
+
+
+  <g class="step work">
+    <rect class="box" x="145.5" y="98.1" width="214" height="66" rx="12"/>
+    <rect class="glow" x="145.5" y="98.1" width="214" height="66" rx="12"
+          style="animation-delay:0.00s"/>
+    <rect class="bar" x="155.5" y="112.1" width="4" height="38" rx="2"/>
+    <text class="title" x="169.5" y="127.1">Recall</text>
+    <text class="sub" x="169.5" y="147.1">past theses, claims, dead ends</text>
+  </g>
+  <g class="step work">
+    <rect class="box" x="373.0" y="57.0" width="214" height="66" rx="12"/>
+    <rect class="glow" x="373.0" y="57.0" width="214" height="66" rx="12"
+          style="animation-delay:2.33s"/>
+    <rect class="bar" x="383.0" y="71.0" width="4" height="38" rx="2"/>
+    <text class="title" x="397.0" y="86.0">Research</text>
+    <text class="sub" x="397.0" y="106.0">filings, news, transcripts</text>
+  </g>
+  <g class="step work">
+    <rect class="box" x="600.5" y="98.1" width="214" height="66" rx="12"/>
+    <rect class="glow" x="600.5" y="98.1" width="214" height="66" rx="12"
+          style="animation-delay:4.67s"/>
+    <rect class="bar" x="610.5" y="112.1" width="4" height="38" rx="2"/>
+    <text class="title" x="624.5" y="127.1">Record</text>
+    <text class="sub" x="624.5" y="147.1">sourced claims and theses</text>
+  </g>
+  <g class="step away">
+    <rect class="box" x="600.5" y="335.9" width="214" height="66" rx="12"/>
+    <rect class="glow" x="600.5" y="335.9" width="214" height="66" rx="12"
+          style="animation-delay:7.00s"/>
+    <rect class="bar" x="610.5" y="349.9" width="4" height="38" rx="2"/>
+    <text class="title" x="624.5" y="364.9">Watch</text>
+    <text class="sub" x="624.5" y="384.9">new SEC filings and news</text>
+  </g>
+  <g class="step away">
+    <rect class="box" x="373.0" y="377.0" width="214" height="66" rx="12"/>
+    <rect class="glow" x="373.0" y="377.0" width="214" height="66" rx="12"
+          style="animation-delay:9.33s"/>
+    <rect class="bar" x="383.0" y="391.0" width="4" height="38" rx="2"/>
+    <text class="title" x="397.0" y="406.0">Alert</text>
+    <text class="sub" x="397.0" y="426.0">which thesis it hits, and why</text>
+  </g>
+  <g class="step away">
+    <rect class="box" x="145.5" y="335.9" width="214" height="66" rx="12"/>
+    <rect class="glow" x="145.5" y="335.9" width="214" height="66" rx="12"
+          style="animation-delay:11.67s"/>
+    <rect class="bar" x="155.5" y="349.9" width="4" height="38" rx="2"/>
+    <text class="title" x="169.5" y="364.9">Review</text>
+    <text class="sub" x="169.5" y="384.9">supports · weakens · breaks</text>
+  </g>
+
+<g class="ask">
+  <rect x="16" y="14" width="250" height="56" rx="12"/>
+  <text class="who" x="32" y="36">You ask</text>
+  <text class="q" x="32" y="57">“Is NVIDIA still supply-bound?”</text>
+</g>
+
+
+</svg>

@@ -83,6 +83,7 @@ class Scorecard(BaseModel):
     generated_at: datetime
     theses: list[ThesisScore]
     calibration: Calibration
+    markdown: str = ""
 
 
 def benchmark_for(store: Backend, thesis: Thesis) -> str:
@@ -278,7 +279,46 @@ def scorecard(store: Backend, now: datetime) -> Scorecard:
     decide_outcomes(store, now)
     scores = [score(store, t, now) for t in tracked(store)]
     scores.sort(key=lambda s: (s.stance_return is None, -(s.stance_return or 0.0)))
-    return Scorecard(generated_at=now, theses=scores, calibration=calibration(store))
+    cal = calibration(store)
+    return Scorecard(
+        generated_at=now,
+        theses=scores,
+        calibration=cal,
+        markdown=render_scorecard(scores, cal),
+    )
+
+
+def render_scorecard(theses: Sequence[ThesisScore], cal: Calibration) -> str:
+    """Markdown tables for tracked theses and calibration."""
+
+    def pct(value: float | None) -> str:
+        return f"{value:+.1%}" if value is not None else "n/a"
+
+    lines: list[str] = []
+    if theses:
+        lines += [
+            "| Thesis | Ticker | Stance | Vs Benchmark | Max Drawdown | Days | Outcome |",
+            "|---|---|---|---:|---:|---:|---|",
+        ]
+        for s in theses:
+            title = s.title.replace("|", "\\|")
+            days = str(s.days_held) if s.days_held is not None else "n/a"
+            outcome = s.outcome.value if s.outcome else "open"
+            lines.append(
+                f"| {title} (`{s.thesis_id}`) | {s.symbol} | {s.stance.value} |"
+                f" {pct(s.stance_return)} | {pct(s.max_drawdown)} | {days} | {outcome} |"
+            )
+    else:
+        lines.append("No theses are tracked against a price yet.")
+    if cal.decided:
+        brier = f"{cal.brier:.4f}" if cal.brier is not None else "n/a"
+        hit = f"{cal.hit_rate:.0%}" if cal.hit_rate is not None else "n/a"
+        note = " (fewer than 10 decided — anecdote)" if cal.decided < MIN_DECIDED else ""
+        lines += [
+            "",
+            f"**Calibration:** {cal.right}/{cal.decided} right ({hit}), Brier {brier}{note}",
+        ]
+    return "\n".join(lines)
 
 
 def render_score(s: ThesisScore) -> str:

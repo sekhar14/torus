@@ -74,10 +74,30 @@ class AuditReport(BaseModel):
     generated_at: datetime
     findings: list[Finding]
     counts: dict[str, int]
+    markdown: str = ""
 
     @property
     def by_severity(self) -> dict[str, int]:
         return dict(Counter(f.severity.value for f in self.findings))
+
+
+def render_audit(findings: list[Finding]) -> str:
+    """Markdown table and summary of audit findings."""
+    if not findings:
+        return "No audit findings — the research graph looks healthy."
+    sev = Counter(f.severity.value for f in findings)
+    lines = [
+        f"**Audit summary:** {sev.get('high', 0)} high, {sev.get('medium', 0)} medium,"
+        f" {sev.get('low', 0)} low",
+        "",
+        "| Severity | Kind | Finding | Suggestion |",
+        "|---|---|---|---|",
+    ]
+    for f in findings:
+        title = f.title.replace("|", "\\|")
+        suggestion = f.suggestion.replace("|", "\\|")
+        lines.append(f"| {f.severity.value} | `{f.kind}` | {title} | {suggestion} |")
+    return "\n".join(lines)
 
 
 def _numbers(text: str) -> set[str]:
@@ -135,7 +155,10 @@ def audit(
     order = {Severity.HIGH: 0, Severity.MEDIUM: 1, Severity.LOW: 2}
     findings.sort(key=lambda f: (order[f.severity], f.kind, f.object_ids))
     return AuditReport(
-        generated_at=now, findings=findings, counts=dict(Counter(f.kind for f in findings))
+        generated_at=now,
+        findings=findings,
+        counts=dict(Counter(f.kind for f in findings)),
+        markdown=render_audit(findings),
     )
 
 

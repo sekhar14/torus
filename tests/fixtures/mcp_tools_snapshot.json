@@ -717,6 +717,11 @@
           "format": "date-time",
           "title": "Generated At",
           "type": "string"
+        },
+        "markdown": {
+          "default": "",
+          "title": "Markdown",
+          "type": "string"
         }
       },
       "required": [
@@ -725,6 +730,578 @@
         "counts"
       ],
       "title": "AuditReport",
+      "type": "object"
+    }
+  },
+  "brief": {
+    "input": {
+      "properties": {
+        "text": {
+          "default": "",
+          "description": "The user's question or company names (leave blank for the digest only)",
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "title": "briefArguments",
+      "type": "object"
+    },
+    "output": {
+      "$defs": {
+        "ClaimType": {
+          "enum": [
+            "fact",
+            "metric",
+            "inference",
+            "forecast",
+            "opinion"
+          ],
+          "title": "ClaimType",
+          "type": "string"
+        },
+        "EntityKind": {
+          "enum": [
+            "company",
+            "security",
+            "person",
+            "product",
+            "sector",
+            "geography",
+            "macro_indicator",
+            "other"
+          ],
+          "title": "EntityKind",
+          "type": "string"
+        },
+        "EvidenceRef": {
+          "properties": {
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "published_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Published At"
+            },
+            "title": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Title"
+            },
+            "uri": {
+              "title": "Uri",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "uri",
+            "title",
+            "published_at"
+          ],
+          "title": "EvidenceRef",
+          "type": "object"
+        },
+        "RecallResult": {
+          "properties": {
+            "alerts": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/RecalledAlert"
+              },
+              "title": "Alerts",
+              "type": "array"
+            },
+            "as_of": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "As Of"
+            },
+            "claims": {
+              "items": {
+                "$ref": "#/$defs/RecalledClaim"
+              },
+              "title": "Claims",
+              "type": "array"
+            },
+            "entities": {
+              "items": {
+                "$ref": "#/$defs/RecalledEntity"
+              },
+              "title": "Entities",
+              "type": "array"
+            },
+            "query": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Query"
+            },
+            "rejected_hypotheses": {
+              "items": {
+                "$ref": "#/$defs/RecalledHypothesis"
+              },
+              "title": "Rejected Hypotheses",
+              "type": "array"
+            },
+            "theses": {
+              "items": {
+                "$ref": "#/$defs/RecalledThesis"
+              },
+              "title": "Theses",
+              "type": "array"
+            },
+            "total_claims": {
+              "title": "Total Claims",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "as_of",
+            "query",
+            "entities",
+            "theses",
+            "claims",
+            "rejected_hypotheses",
+            "total_claims"
+          ],
+          "title": "RecallResult",
+          "type": "object"
+        },
+        "RecalledAlert": {
+          "properties": {
+            "event_title": {
+              "title": "Event Title",
+              "type": "string"
+            },
+            "event_uri": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Event Uri"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "occurred_at": {
+              "format": "date-time",
+              "title": "Occurred At",
+              "type": "string"
+            },
+            "score": {
+              "title": "Score",
+              "type": "number"
+            },
+            "thesis_id": {
+              "title": "Thesis Id",
+              "type": "string"
+            },
+            "thesis_title": {
+              "title": "Thesis Title",
+              "type": "string"
+            },
+            "why": {
+              "title": "Why",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "thesis_id",
+            "thesis_title",
+            "event_title",
+            "event_uri",
+            "occurred_at",
+            "score",
+            "why"
+          ],
+          "title": "RecalledAlert",
+          "type": "object"
+        },
+        "RecalledClaim": {
+          "properties": {
+            "claim_type": {
+              "$ref": "#/$defs/ClaimType"
+            },
+            "confidence": {
+              "title": "Confidence",
+              "type": "number"
+            },
+            "entities": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Entities",
+              "type": "array"
+            },
+            "evidence": {
+              "items": {
+                "$ref": "#/$defs/EvidenceRef"
+              },
+              "title": "Evidence",
+              "type": "array"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "lineage_id": {
+              "title": "Lineage Id",
+              "type": "string"
+            },
+            "recorded_at": {
+              "format": "date-time",
+              "title": "Recorded At",
+              "type": "string"
+            },
+            "score": {
+              "title": "Score",
+              "type": "number"
+            },
+            "text": {
+              "title": "Text",
+              "type": "string"
+            },
+            "valid_from": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Valid From"
+            },
+            "valid_to": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Valid To"
+            }
+          },
+          "required": [
+            "id",
+            "lineage_id",
+            "text",
+            "claim_type",
+            "confidence",
+            "recorded_at",
+            "valid_from",
+            "valid_to",
+            "entities",
+            "evidence",
+            "score"
+          ],
+          "title": "RecalledClaim",
+          "type": "object"
+        },
+        "RecalledEntity": {
+          "properties": {
+            "canonical_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Canonical Key"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "kind": {
+              "$ref": "#/$defs/EntityKind"
+            },
+            "last_researched": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last Researched"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "tickers": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Tickers",
+              "type": "array"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "kind",
+            "canonical_key",
+            "tickers",
+            "last_researched"
+          ],
+          "title": "RecalledEntity",
+          "type": "object"
+        },
+        "RecalledHypothesis": {
+          "properties": {
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            },
+            "recorded_at": {
+              "format": "date-time",
+              "title": "Recorded At",
+              "type": "string"
+            },
+            "text": {
+              "title": "Text",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "text",
+            "reason",
+            "recorded_at"
+          ],
+          "title": "RecalledHypothesis",
+          "type": "object"
+        },
+        "RecalledThesis": {
+          "properties": {
+            "claims": {
+              "items": {
+                "$ref": "#/$defs/ThesisClaimRef"
+              },
+              "title": "Claims",
+              "type": "array"
+            },
+            "confidence": {
+              "title": "Confidence",
+              "type": "number"
+            },
+            "horizon": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Horizon"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "stance": {
+              "$ref": "#/$defs/Stance"
+            },
+            "statement": {
+              "title": "Statement",
+              "type": "string"
+            },
+            "status": {
+              "$ref": "#/$defs/ThesisStatus"
+            },
+            "subject": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Subject"
+            },
+            "title": {
+              "title": "Title",
+              "type": "string"
+            },
+            "updated_at": {
+              "format": "date-time",
+              "title": "Updated At",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "title",
+            "statement",
+            "stance",
+            "status",
+            "confidence",
+            "horizon",
+            "subject",
+            "updated_at",
+            "claims"
+          ],
+          "title": "RecalledThesis",
+          "type": "object"
+        },
+        "Stance": {
+          "enum": [
+            "bullish",
+            "bearish",
+            "neutral",
+            "n/a"
+          ],
+          "title": "Stance",
+          "type": "string"
+        },
+        "ThesisClaimRef": {
+          "properties": {
+            "confidence": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Confidence"
+            },
+            "lineage_id": {
+              "title": "Lineage Id",
+              "type": "string"
+            },
+            "role": {
+              "$ref": "#/$defs/ThesisClaimRole"
+            },
+            "text": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Text"
+            }
+          },
+          "required": [
+            "lineage_id",
+            "role",
+            "text",
+            "confidence"
+          ],
+          "title": "ThesisClaimRef",
+          "type": "object"
+        },
+        "ThesisClaimRole": {
+          "enum": [
+            "assumption",
+            "supporting",
+            "risk"
+          ],
+          "title": "ThesisClaimRole",
+          "type": "string"
+        },
+        "ThesisStatus": {
+          "enum": [
+            "active",
+            "at_risk",
+            "broken",
+            "confirmed",
+            "archived"
+          ],
+          "title": "ThesisStatus",
+          "type": "string"
+        }
+      },
+      "properties": {
+        "context": {
+          "description": "Prior theses, claims and open alerts on those companies (markdown)",
+          "title": "Context",
+          "type": "string"
+        },
+        "detected_entities": {
+          "description": "Known companies spotted in `text`, as 'Name (id)'",
+          "items": {
+            "type": "string"
+          },
+          "title": "Detected Entities",
+          "type": "array"
+        },
+        "digest": {
+          "description": "Graph overview: open alerts, theses at risk, 7-day changes, audit summary",
+          "title": "Digest",
+          "type": "string"
+        },
+        "recall": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RecallResult"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "detected_entities",
+        "context",
+        "digest"
+      ],
+      "title": "BriefResult",
       "type": "object"
     }
   },
@@ -2998,6 +3575,74 @@
         "mapping_jobs_queued"
       ],
       "title": "OnboardResult",
+      "type": "object"
+    }
+  },
+  "open_explorer": {
+    "input": {
+      "properties": {
+        "focus": {
+          "default": [],
+          "description": "Companies to centre on (default: whole graph)",
+          "items": {
+            "type": "string"
+          },
+          "title": "Focus",
+          "type": "array"
+        },
+        "hops": {
+          "default": 2,
+          "maximum": 4,
+          "minimum": 1,
+          "title": "Hops",
+          "type": "integer"
+        },
+        "open_browser": {
+          "default": true,
+          "description": "Open the HTML file in the default browser",
+          "title": "Open Browser",
+          "type": "boolean"
+        }
+      },
+      "title": "open_explorerArguments",
+      "type": "object"
+    },
+    "output": {
+      "properties": {
+        "companies": {
+          "title": "Companies",
+          "type": "integer"
+        },
+        "events": {
+          "title": "Events",
+          "type": "integer"
+        },
+        "links": {
+          "title": "Links",
+          "type": "integer"
+        },
+        "opened": {
+          "title": "Opened",
+          "type": "boolean"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "theses": {
+          "title": "Theses",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "opened",
+        "companies",
+        "links",
+        "theses",
+        "events"
+      ],
+      "title": "ExplorerResult",
       "type": "object"
     }
   },
@@ -5929,6 +6574,11 @@
         "generated_at": {
           "format": "date-time",
           "title": "Generated At",
+          "type": "string"
+        },
+        "markdown": {
+          "default": "",
+          "title": "Markdown",
           "type": "string"
         },
         "theses": {

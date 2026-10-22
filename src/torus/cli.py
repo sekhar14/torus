@@ -1,4 +1,4 @@
-"""Command line interface: ``torus init | status | resolve | detect | serve | hook |
+"""Command line interface: ``torus init | setup | status | resolve | detect | serve | hook |
 watch | schedule | feed | alerts | onboard | audit | whatif | memo | scorecard | config |
 graph | explore | doctor | export | import``."""
 
@@ -40,12 +40,19 @@ def _require_db(p: Paths) -> bool:
 
 def _cmd_init(args: argparse.Namespace) -> int:
     p = paths().ensure()
+    contact = args.contact or os.environ.get(ENV_CONTACT, "")
+    if contact:
+        problem = _check_config_value("sec_contact", contact)
+        if problem:
+            print(problem, file=sys.stderr)
+            return 2
     with SQLiteBackend.open(p.db) as store:
         version = store.schema_version()
+        if contact:
+            store.set_setting("sec_contact", contact)
     print(f"Torus home: {p.home}")
     print(f"Database:   {p.db} (schema v{version})")
     if args.refresh_reference:
-        contact = args.contact or os.environ.get(ENV_CONTACT, "")
         if not contact:
             print(
                 f"--refresh-reference needs --contact EMAIL (or {ENV_CONTACT}); "
@@ -61,6 +68,109 @@ def _cmd_init(args: argparse.Namespace) -> int:
         print(f"Reference:  {len(data)} SEC companies")
     else:
         print(f"Reference:  {len(_reference(p))} SEC companies cached")
+    return 0
+
+
+def _cmd_setup(args: argparse.Namespace) -> int:
+    from torus.config import ENV_HOME
+    from torus.schedule import Scheduler
+    from torus.setup import (
+        CLAUDE_CODE_COMMANDS,
+        claude_desktop_config_path,
+        claude_desktop_installed,
+        codex_config_path,
+        codex_installed,
+        configure_claude_desktop,
+        configure_codex,
+    )
+
+    p = paths().ensure()
+    explicit_home = p.home if os.environ.get(ENV_HOME) else None
+    with SQLiteBackend.open(p.db) as store:
+        version = store.schema_version()
+        contact = (
+            args.contact
+            or os.environ.get(ENV_CONTACT, "")
+            or store.get_setting("sec_contact")
+            or ""
+        )
+        if not contact and sys.stdin.isatty():
+            try:
+                contact = input(
+                    "Email for SEC EDGAR requests (the SEC asks for one; Enter to skip): "
+                ).strip()
+            except EOFError:  # Windows reports NUL as a terminal
+                print()
+        if contact:
+            problem = _check_config_value("sec_contact", contact)
+            if problem:
+                print(problem, file=sys.stderr)
+                return 2
+            store.set_setting("sec_contact", contact)
+
+    print(f"Torus home:     {p.home}")
+    print(f"Database:       {p.db} (schema v{version})")
+    if contact:
+        print(f"SEC contact:    {contact}")
+
+    if not args.no_refresh_reference:
+        if contact:
+            try:
+                data = fetch_sec_tickers(p.reference / SEC_TICKERS_FILENAME, contact)
+                print(f"Reference:      {len(data)} SEC companies")
+            except (OSError, ValueError) as exc:
+                print(f"Reference download failed: {exc}", file=sys.stderr)
+                return 1
+        else:
+            cached = len(_reference(p))
+            print(
+                f"Reference:      {cached} SEC companies cached"
+                " (pass --contact EMAIL to download the SEC ticker list)"
+            )
+    else:
+        print(f"Reference:      {len(_reference(p))} SEC companies cached")
+
+    # Unless told otherwise, configure the apps that look installed.
+    claude_path = claude_desktop_config_path()
+    detected = claude_desktop_installed(claude_path)
+    want_claude = detected if args.claude_desktop is None else args.claude_desktop
+    codex_path = codex_config_path()
+    want_codex = codex_installed(codex_path) if args.codex is None else args.codex
+
+    if want_claude:
+        try:
+            configure_claude_desktop(claude_path, home=explicit_home)
+            print(f"Claude Desktop: {claude_path}")
+        except ValueError as exc:
+            print(f"Claude Desktop setup failed: {exc}", file=sys.stderr)
+            return 1
+    else:
+        print("Claude Desktop: not found (pass --claude-desktop to configure it anyway)")
+
+    if want_codex:
+        try:
+            codex = configure_codex(codex_path, home=explicit_home)
+        except ValueError as exc:
+            print(f"Codex setup failed: {exc}", file=sys.stderr)
+            return 1
+        kept = "" if codex.updated else "; kept your existing [mcp_servers.torus]"
+        print(f"Codex:          {codex.config} ({len(codex.skills)} skills{kept})")
+    else:
+        print("Codex:          not found (pass --codex to configure it anyway)")
+
+    print("Claude Code:    run these in Claude Code to add the plugin:")
+    for line in CLAUDE_CODE_COMMANDS:
+        print(f"                  {line}")
+
+    if not args.no_schedule:
+        scheduler = Scheduler(p.home)
+        try:
+            what = scheduler.install(1)
+            print(f"Schedule:       {what}")
+        except (RuntimeError, ValueError) as exc:
+            print(f"Schedule:       not installed ({exc})", file=sys.stderr)
+
+    print("\nRestart Claude Desktop or Codex to load Torus.")
     return 0
 
 
@@ -850,6 +960,35 @@ def build_parser() -> argparse.ArgumentParser:
     )
     init.add_argument("--contact", help=f"email for the SEC User-Agent (or ${ENV_CONTACT})")
     init.set_defaults(func=_cmd_init)
+
+    setup = sub.add_parser(
+        "setup",
+        help="initialise Torus and configure Claude Desktop and Codex desktop",
+    )
+    setup.add_argument("--contact", help=f"email for the SEC User-Agent (or ${ENV_CONTACT})")
+    setup.add_argument(
+        "--claude-desktop",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="configure Claude Desktop (default: if it is installed)",
+    )
+    setup.add_argument(
+        "--codex",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="configure Codex and install the Torus skills (default: if it is installed)",
+    )
+    setup.add_argument(
+        "--no-schedule",
+        action="store_true",
+        help="don't install the hourly watcher schedule",
+    )
+    setup.add_argument(
+        "--no-refresh-reference",
+        action="store_true",
+        help="don't download the SEC company ticker list",
+    )
+    setup.set_defaults(func=_cmd_setup)
 
     status = sub.add_parser("status", help="show database location and counts")
     status.add_argument("--json", action="store_true", help="machine-readable output")
