@@ -28,6 +28,21 @@
           "$ref": "#/$defs/EventKind",
           "default": "manual"
         },
+        "materiality": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How much it matters (default 1.0)",
+          "title": "Materiality"
+        },
         "occurred_at": {
           "description": "When it happened (UTC if no zone)",
           "format": "date-time",
@@ -85,9 +100,45 @@
               "title": "Event Id",
               "type": "string"
             },
+            "graph_score": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Graph Score"
+            },
             "id": {
               "title": "Id",
               "type": "string"
+            },
+            "matched_trigger": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Matched Trigger"
+            },
+            "materiality": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Materiality"
             },
             "paths": {
               "items": {
@@ -129,6 +180,18 @@
             "thesis_id": {
               "title": "Thesis Id",
               "type": "string"
+            },
+            "trigger_match": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Trigger Match"
             },
             "verdict": {
               "anyOf": [
@@ -219,6 +282,23 @@
             },
             "kind": {
               "$ref": "#/$defs/EventKind"
+            },
+            "materiality": {
+              "default": 1.0,
+              "title": "Materiality",
+              "type": "number"
+            },
+            "materiality_reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Materiality Reason"
             },
             "occurred_at": {
               "format": "date-time",
@@ -390,6 +470,264 @@
       "type": "object"
     }
   },
+  "alert_stats": {
+    "input": {
+      "properties": {
+        "since": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only alerts raised since",
+          "title": "Since"
+        }
+      },
+      "title": "alert_stats_toolArguments",
+      "type": "object"
+    },
+    "output": {
+      "$defs": {
+        "Bucket": {
+          "properties": {
+            "alerts": {
+              "title": "Alerts",
+              "type": "integer"
+            },
+            "judged": {
+              "title": "Judged",
+              "type": "integer"
+            },
+            "label": {
+              "title": "Label",
+              "type": "string"
+            },
+            "precision": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Precision"
+            },
+            "unrelated": {
+              "title": "Unrelated",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "label",
+            "alerts",
+            "judged",
+            "unrelated",
+            "precision"
+          ],
+          "title": "Bucket",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "alerts": {
+          "title": "Alerts",
+          "type": "integer"
+        },
+        "by_form": {
+          "items": {
+            "$ref": "#/$defs/Bucket"
+          },
+          "title": "By Form",
+          "type": "array"
+        },
+        "by_hops": {
+          "items": {
+            "$ref": "#/$defs/Bucket"
+          },
+          "title": "By Hops",
+          "type": "array"
+        },
+        "by_materiality": {
+          "items": {
+            "$ref": "#/$defs/Bucket"
+          },
+          "title": "By Materiality",
+          "type": "array"
+        },
+        "by_source": {
+          "items": {
+            "$ref": "#/$defs/Bucket"
+          },
+          "title": "By Source",
+          "type": "array"
+        },
+        "by_verdict": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "By Verdict",
+          "type": "object"
+        },
+        "judged": {
+          "title": "Judged",
+          "type": "integer"
+        },
+        "open": {
+          "title": "Open",
+          "type": "integer"
+        },
+        "precision": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Precision"
+        },
+        "unrelated": {
+          "title": "Unrelated",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "alerts",
+        "open",
+        "judged",
+        "unrelated",
+        "precision",
+        "by_verdict",
+        "by_source",
+        "by_form",
+        "by_hops",
+        "by_materiality"
+      ],
+      "title": "AlertStats",
+      "type": "object"
+    }
+  },
+  "audit": {
+    "input": {
+      "properties": {
+        "stale_days": {
+          "default": 90,
+          "description": "Flag open theses unchanged this long",
+          "maximum": 3650,
+          "minimum": 7,
+          "title": "Stale Days",
+          "type": "integer"
+        }
+      },
+      "title": "audit_toolArguments",
+      "type": "object"
+    },
+    "output": {
+      "$defs": {
+        "Finding": {
+          "properties": {
+            "detail": {
+              "title": "Detail",
+              "type": "string"
+            },
+            "kind": {
+              "title": "Kind",
+              "type": "string"
+            },
+            "object_ids": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Object Ids",
+              "type": "array"
+            },
+            "object_type": {
+              "title": "Object Type",
+              "type": "string"
+            },
+            "severity": {
+              "$ref": "#/$defs/Severity"
+            },
+            "suggestion": {
+              "title": "Suggestion",
+              "type": "string"
+            },
+            "thesis_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Thesis Id"
+            },
+            "title": {
+              "title": "Title",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "severity",
+            "title",
+            "detail",
+            "object_type",
+            "object_ids",
+            "suggestion"
+          ],
+          "title": "Finding",
+          "type": "object"
+        },
+        "Severity": {
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ],
+          "title": "Severity",
+          "type": "string"
+        }
+      },
+      "properties": {
+        "counts": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Counts",
+          "type": "object"
+        },
+        "findings": {
+          "items": {
+            "$ref": "#/$defs/Finding"
+          },
+          "title": "Findings",
+          "type": "array"
+        },
+        "generated_at": {
+          "format": "date-time",
+          "title": "Generated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "generated_at",
+        "findings",
+        "counts"
+      ],
+      "title": "AuditReport",
+      "type": "object"
+    }
+  },
   "complete_distillation": {
     "input": {
       "properties": {
@@ -448,6 +786,374 @@
         "remaining"
       ],
       "title": "DistillationOutcome",
+      "type": "object"
+    }
+  },
+  "complete_mapping": {
+    "input": {
+      "properties": {
+        "failed": {
+          "default": false,
+          "description": "True if it couldn't be done; it will be retried",
+          "title": "Failed",
+          "type": "boolean"
+        },
+        "queue_id": {
+          "title": "Queue Id",
+          "type": "string"
+        },
+        "summary": {
+          "description": "Links and claims added, in a sentence",
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "queue_id",
+        "summary"
+      ],
+      "title": "complete_mappingArguments",
+      "type": "object"
+    },
+    "output": {
+      "$defs": {
+        "QueueStatus": {
+          "enum": [
+            "pending",
+            "leased",
+            "done",
+            "parked"
+          ],
+          "title": "QueueStatus",
+          "type": "string"
+        }
+      },
+      "properties": {
+        "queue_id": {
+          "title": "Queue Id",
+          "type": "string"
+        },
+        "remaining": {
+          "title": "Remaining",
+          "type": "integer"
+        },
+        "status": {
+          "$ref": "#/$defs/QueueStatus"
+        }
+      },
+      "required": [
+        "queue_id",
+        "status",
+        "remaining"
+      ],
+      "title": "MappingOutcome",
+      "type": "object"
+    }
+  },
+  "filing_diff": {
+    "input": {
+      "properties": {
+        "company": {
+          "description": "Ticker, CIK, company name, canonical key or id",
+          "title": "Company",
+          "type": "string"
+        },
+        "form": {
+          "default": "10-K",
+          "description": "10-K, 10-Q or 20-F",
+          "title": "Form",
+          "type": "string"
+        },
+        "max_items": {
+          "default": 40,
+          "maximum": 200,
+          "minimum": 5,
+          "title": "Max Items",
+          "type": "integer"
+        },
+        "section": {
+          "default": "risk_factors",
+          "description": "e.g. risk_factors, business, mdna",
+          "title": "Section",
+          "type": "string"
+        }
+      },
+      "required": [
+        "company"
+      ],
+      "title": "filing_diffArguments",
+      "type": "object"
+    },
+    "output": {
+      "$defs": {
+        "Changed": {
+          "properties": {
+            "after": {
+              "title": "After",
+              "type": "string"
+            },
+            "before": {
+              "title": "Before",
+              "type": "string"
+            },
+            "similarity": {
+              "title": "Similarity",
+              "type": "number"
+            }
+          },
+          "required": [
+            "before",
+            "after",
+            "similarity"
+          ],
+          "title": "Changed",
+          "type": "object"
+        },
+        "FilingRef": {
+          "properties": {
+            "accession": {
+              "title": "Accession",
+              "type": "string"
+            },
+            "filed": {
+              "format": "date",
+              "title": "Filed",
+              "type": "string"
+            },
+            "form": {
+              "title": "Form",
+              "type": "string"
+            },
+            "url": {
+              "title": "Url",
+              "type": "string"
+            }
+          },
+          "required": [
+            "accession",
+            "form",
+            "filed",
+            "url"
+          ],
+          "title": "FilingRef",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "added": {
+          "description": "New sentences",
+          "items": {
+            "type": "string"
+          },
+          "title": "Added",
+          "type": "array"
+        },
+        "changed": {
+          "description": "Reworded sentences, most rewritten first",
+          "items": {
+            "$ref": "#/$defs/Changed"
+          },
+          "title": "Changed",
+          "type": "array"
+        },
+        "company": {
+          "title": "Company",
+          "type": "string"
+        },
+        "latest": {
+          "$ref": "#/$defs/FilingRef"
+        },
+        "previous": {
+          "$ref": "#/$defs/FilingRef"
+        },
+        "removed": {
+          "description": "Dropped sentences",
+          "items": {
+            "type": "string"
+          },
+          "title": "Removed",
+          "type": "array"
+        },
+        "section": {
+          "title": "Section",
+          "type": "string"
+        },
+        "total_added": {
+          "title": "Total Added",
+          "type": "integer"
+        },
+        "total_changed": {
+          "title": "Total Changed",
+          "type": "integer"
+        },
+        "total_removed": {
+          "title": "Total Removed",
+          "type": "integer"
+        },
+        "unchanged": {
+          "title": "Unchanged",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "company",
+        "section",
+        "latest",
+        "previous",
+        "added",
+        "removed",
+        "changed",
+        "unchanged",
+        "total_added",
+        "total_removed",
+        "total_changed"
+      ],
+      "title": "FilingDiffResult",
+      "type": "object"
+    }
+  },
+  "filing_text": {
+    "input": {
+      "properties": {
+        "company": {
+          "description": "Ticker, CIK, company name, canonical key or id",
+          "title": "Company",
+          "type": "string"
+        },
+        "form": {
+          "default": "10-K",
+          "description": "10-K, 10-Q, 20-F, 8-K...",
+          "title": "Form",
+          "type": "string"
+        },
+        "index": {
+          "default": 0,
+          "description": "0 = latest, 1 = previous",
+          "maximum": 10,
+          "minimum": 0,
+          "title": "Index",
+          "type": "integer"
+        },
+        "max_chars": {
+          "default": 20000,
+          "maximum": 60000,
+          "minimum": 2000,
+          "title": "Max Chars",
+          "type": "integer"
+        },
+        "offset": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
+        "section": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "business, risk_factors, mdna, legal, market_risk, financials, or an item id like 1A; omit for the whole document",
+          "title": "Section"
+        }
+      },
+      "required": [
+        "company"
+      ],
+      "title": "filing_textArguments",
+      "type": "object"
+    },
+    "output": {
+      "properties": {
+        "accession": {
+          "title": "Accession",
+          "type": "string"
+        },
+        "cik": {
+          "title": "Cik",
+          "type": "string"
+        },
+        "company": {
+          "title": "Company",
+          "type": "string"
+        },
+        "filed": {
+          "format": "date",
+          "title": "Filed",
+          "type": "string"
+        },
+        "form": {
+          "title": "Form",
+          "type": "string"
+        },
+        "next_offset": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Pass as offset to read on; None at the end",
+          "title": "Next Offset"
+        },
+        "offset": {
+          "title": "Offset",
+          "type": "integer"
+        },
+        "section": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Section"
+        },
+        "sections": {
+          "description": "Sections this filing can be read by",
+          "items": {
+            "type": "string"
+          },
+          "title": "Sections",
+          "type": "array"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "total_chars": {
+          "title": "Total Chars",
+          "type": "integer"
+        },
+        "url": {
+          "description": "Cite this as the evidence URI (kind: filing)",
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "company",
+        "cik",
+        "form",
+        "accession",
+        "filed",
+        "url",
+        "section",
+        "sections",
+        "text",
+        "offset",
+        "next_offset",
+        "total_chars"
+      ],
+      "title": "FilingText",
       "type": "object"
     }
   },
@@ -886,6 +1592,27 @@
       "$defs": {
         "ImpactHit": {
           "properties": {
+            "graph_score": {
+              "title": "Graph Score",
+              "type": "number"
+            },
+            "matched_trigger": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Matched Trigger"
+            },
+            "materiality": {
+              "default": 1.0,
+              "title": "Materiality",
+              "type": "number"
+            },
             "paths": {
               "items": {
                 "$ref": "#/$defs/ImpactPath"
@@ -904,13 +1631,19 @@
             "thesis_title": {
               "title": "Thesis Title",
               "type": "string"
+            },
+            "trigger_match": {
+              "default": 0.0,
+              "title": "Trigger Match",
+              "type": "number"
             }
           },
           "required": [
             "thesis_id",
             "thesis_title",
             "score",
-            "paths"
+            "paths",
+            "graph_score"
           ],
           "title": "ImpactHit",
           "type": "object"
@@ -999,6 +1732,12 @@
         }
       },
       "properties": {
+        "grouped": {
+          "default": false,
+          "description": "Also group the alerts by thesis, to judge each once",
+          "title": "Grouped",
+          "type": "boolean"
+        },
         "status": {
           "$ref": "#/$defs/AlertStatus",
           "default": "open"
@@ -1032,9 +1771,45 @@
               "title": "Event Id",
               "type": "string"
             },
+            "graph_score": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Graph Score"
+            },
             "id": {
               "title": "Id",
               "type": "string"
+            },
+            "matched_trigger": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Matched Trigger"
+            },
+            "materiality": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Materiality"
             },
             "paths": {
               "items": {
@@ -1077,6 +1852,18 @@
               "title": "Thesis Id",
               "type": "string"
             },
+            "trigger_match": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Trigger Match"
+            },
             "verdict": {
               "anyOf": [
                 {
@@ -1101,6 +1888,46 @@
             "resolved_at"
           ],
           "title": "Alert",
+          "type": "object"
+        },
+        "AlertGroup": {
+          "properties": {
+            "alerts": {
+              "items": {
+                "$ref": "#/$defs/AlertView"
+              },
+              "title": "Alerts",
+              "type": "array"
+            },
+            "thesis_confidence": {
+              "title": "Thesis Confidence",
+              "type": "number"
+            },
+            "thesis_id": {
+              "title": "Thesis Id",
+              "type": "string"
+            },
+            "thesis_status": {
+              "$ref": "#/$defs/ThesisStatus"
+            },
+            "thesis_title": {
+              "title": "Thesis Title",
+              "type": "string"
+            },
+            "top_score": {
+              "title": "Top Score",
+              "type": "number"
+            }
+          },
+          "required": [
+            "thesis_id",
+            "thesis_title",
+            "thesis_status",
+            "thesis_confidence",
+            "top_score",
+            "alerts"
+          ],
+          "title": "AlertGroup",
           "type": "object"
         },
         "AlertStatus": {
@@ -1166,6 +1993,23 @@
             },
             "kind": {
               "$ref": "#/$defs/EventKind"
+            },
+            "materiality": {
+              "default": 1.0,
+              "title": "Materiality",
+              "type": "number"
+            },
+            "materiality_reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Materiality Reason"
             },
             "occurred_at": {
               "format": "date-time",
@@ -1317,6 +2161,15 @@
             "$ref": "#/$defs/AlertView"
           },
           "title": "Alerts",
+          "type": "array"
+        },
+        "groups": {
+          "default": [],
+          "description": "The same alerts grouped by thesis (when grouped=true)",
+          "items": {
+            "$ref": "#/$defs/AlertGroup"
+          },
+          "title": "Groups",
           "type": "array"
         }
       },
@@ -1931,6 +2784,223 @@
       "type": "object"
     }
   },
+  "next_mapping": {
+    "input": {
+      "properties": {},
+      "title": "next_mappingArguments",
+      "type": "object"
+    },
+    "output": {
+      "$defs": {
+        "MappingJob": {
+          "properties": {
+            "cik": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "None: no SEC filings to read",
+              "title": "Cik"
+            },
+            "entity_id": {
+              "title": "Entity Id",
+              "type": "string"
+            },
+            "forms": {
+              "description": "Annual report forms to try, in order",
+              "items": {
+                "type": "string"
+              },
+              "title": "Forms",
+              "type": "array"
+            },
+            "known_links": {
+              "description": "Links already in the graph; confirm or extend",
+              "items": {
+                "type": "string"
+              },
+              "title": "Known Links",
+              "type": "array"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "queue_id": {
+              "title": "Queue Id",
+              "type": "string"
+            },
+            "tickers": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Tickers",
+              "type": "array"
+            }
+          },
+          "required": [
+            "queue_id",
+            "entity_id",
+            "name",
+            "cik",
+            "tickers",
+            "forms",
+            "known_links"
+          ],
+          "title": "MappingJob",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "job": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MappingJob"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "remaining": {
+          "description": "Jobs still waiting after this one",
+          "title": "Remaining",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "job",
+        "remaining"
+      ],
+      "title": "NextMapping",
+      "type": "object"
+    }
+  },
+  "onboard": {
+    "input": {
+      "properties": {
+        "tickers": {
+          "description": "Tickers or company names to cover",
+          "items": {
+            "type": "string"
+          },
+          "title": "Tickers",
+          "type": "array"
+        },
+        "watch": {
+          "default": true,
+          "description": "Watch their SEC filings",
+          "title": "Watch",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "tickers"
+      ],
+      "title": "onboard_toolArguments",
+      "type": "object"
+    },
+    "output": {
+      "$defs": {
+        "OnboardedCompany": {
+          "properties": {
+            "created": {
+              "title": "Created",
+              "type": "boolean"
+            },
+            "entity_id": {
+              "title": "Entity Id",
+              "type": "string"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "queued_for_mapping": {
+              "title": "Queued For Mapping",
+              "type": "boolean"
+            },
+            "ref": {
+              "title": "Ref",
+              "type": "string"
+            }
+          },
+          "required": [
+            "ref",
+            "entity_id",
+            "name",
+            "created",
+            "queued_for_mapping"
+          ],
+          "title": "OnboardedCompany",
+          "type": "object"
+        },
+        "PackSuggestion": {
+          "properties": {
+            "covers": {
+              "description": "How many of the onboarded companies the pack includes",
+              "title": "Covers",
+              "type": "integer"
+            },
+            "pack": {
+              "title": "Pack",
+              "type": "string"
+            },
+            "title": {
+              "title": "Title",
+              "type": "string"
+            }
+          },
+          "required": [
+            "pack",
+            "title",
+            "covers"
+          ],
+          "title": "PackSuggestion",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "companies": {
+          "items": {
+            "$ref": "#/$defs/OnboardedCompany"
+          },
+          "title": "Companies",
+          "type": "array"
+        },
+        "mapping_jobs_queued": {
+          "title": "Mapping Jobs Queued",
+          "type": "integer"
+        },
+        "suggested_packs": {
+          "items": {
+            "$ref": "#/$defs/PackSuggestion"
+          },
+          "title": "Suggested Packs",
+          "type": "array"
+        },
+        "unresolved": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unresolved",
+          "type": "array"
+        }
+      },
+      "required": [
+        "companies",
+        "unresolved",
+        "suggested_packs",
+        "mapping_jobs_queued"
+      ],
+      "title": "OnboardResult",
+      "type": "object"
+    }
+  },
   "recall": {
     "input": {
       "properties": {
@@ -2497,6 +3567,100 @@
         "total_claims"
       ],
       "title": "RecallResult",
+      "type": "object"
+    }
+  },
+  "recent_records": {
+    "input": {
+      "properties": {
+        "sessions": {
+          "default": 1,
+          "description": "Most recent sessions",
+          "maximum": 10,
+          "minimum": 1,
+          "title": "Sessions",
+          "type": "integer"
+        }
+      },
+      "title": "recent_recordsArguments",
+      "type": "object"
+    },
+    "output": {
+      "$defs": {
+        "RecordState": {
+          "properties": {
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "state": {
+              "title": "State",
+              "type": "string"
+            },
+            "text": {
+              "title": "Text",
+              "type": "string"
+            },
+            "type": {
+              "title": "Type",
+              "type": "string"
+            },
+            "undoable": {
+              "title": "Undoable",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "type",
+            "id",
+            "text",
+            "state",
+            "undoable"
+          ],
+          "title": "RecordState",
+          "type": "object"
+        },
+        "SessionRecords": {
+          "properties": {
+            "last_recorded_at": {
+              "format": "date-time",
+              "title": "Last Recorded At",
+              "type": "string"
+            },
+            "records": {
+              "items": {
+                "$ref": "#/$defs/RecordState"
+              },
+              "title": "Records",
+              "type": "array"
+            },
+            "session_id": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "session_id",
+            "last_recorded_at",
+            "records"
+          ],
+          "title": "SessionRecords",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "sessions": {
+          "items": {
+            "$ref": "#/$defs/SessionRecords"
+          },
+          "title": "Sessions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "sessions"
+      ],
+      "title": "RecentRecords",
       "type": "object"
     }
   },
@@ -3093,6 +4257,19 @@
         "text": {
           "title": "Text",
           "type": "string"
+        },
+        "withdrawn_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Withdrawn At"
         }
       },
       "required": [
@@ -3544,6 +4721,30 @@
         }
       },
       "properties": {
+        "alert_threshold": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Alert Threshold"
+        },
+        "benchmark": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Benchmark"
+        },
         "claims": {
           "items": {
             "$ref": "#/$defs/ThesisClaim"
@@ -3562,6 +4763,31 @@
           "title": "Created At",
           "type": "string"
         },
+        "entry_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entry At"
+        },
+        "entry_price": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entry Price"
+        },
         "horizon": {
           "anyOf": [
             {
@@ -3573,9 +4799,34 @@
           ],
           "title": "Horizon"
         },
+        "horizon_date": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Horizon Date"
+        },
         "id": {
           "title": "Id",
           "type": "string"
+        },
+        "instrument": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Instrument"
         },
         "session_id": {
           "anyOf": [
@@ -3733,9 +4984,45 @@
               "title": "Event Id",
               "type": "string"
             },
+            "graph_score": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Graph Score"
+            },
             "id": {
               "title": "Id",
               "type": "string"
+            },
+            "matched_trigger": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Matched Trigger"
+            },
+            "materiality": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Materiality"
             },
             "paths": {
               "items": {
@@ -3777,6 +5064,18 @@
             "thesis_id": {
               "title": "Thesis Id",
               "type": "string"
+            },
+            "trigger_match": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Trigger Match"
             },
             "verdict": {
               "anyOf": [
@@ -3837,6 +5136,23 @@
             },
             "kind": {
               "$ref": "#/$defs/EventKind"
+            },
+            "materiality": {
+              "default": 1.0,
+              "title": "Materiality",
+              "type": "number"
+            },
+            "materiality_reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Materiality Reason"
             },
             "occurred_at": {
               "format": "date-time",
@@ -4248,6 +5564,390 @@
       "type": "object"
     }
   },
+  "scorecard": {
+    "input": {
+      "properties": {
+        "refresh": {
+          "default": false,
+          "description": "Fetch the latest prices first (Yahoo Finance)",
+          "title": "Refresh",
+          "type": "boolean"
+        }
+      },
+      "title": "scorecard_toolArguments",
+      "type": "object"
+    },
+    "output": {
+      "$defs": {
+        "Band": {
+          "properties": {
+            "hit_rate": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Hit Rate"
+            },
+            "label": {
+              "title": "Label",
+              "type": "string"
+            },
+            "mean_confidence": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Mean Confidence"
+            },
+            "theses": {
+              "title": "Theses",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "label",
+            "theses",
+            "mean_confidence",
+            "hit_rate"
+          ],
+          "title": "Band",
+          "type": "object"
+        },
+        "Calibration": {
+          "properties": {
+            "bands": {
+              "items": {
+                "$ref": "#/$defs/Band"
+              },
+              "title": "Bands",
+              "type": "array"
+            },
+            "brier": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Brier"
+            },
+            "decided": {
+              "title": "Decided",
+              "type": "integer"
+            },
+            "hit_rate": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Hit Rate"
+            },
+            "right": {
+              "title": "Right",
+              "type": "integer"
+            },
+            "wrong": {
+              "title": "Wrong",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "decided",
+            "right",
+            "wrong",
+            "hit_rate",
+            "brier",
+            "bands"
+          ],
+          "title": "Calibration",
+          "type": "object"
+        },
+        "Outcome": {
+          "enum": [
+            "right",
+            "wrong",
+            "unclear"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        },
+        "Stance": {
+          "enum": [
+            "bullish",
+            "bearish",
+            "neutral",
+            "n/a"
+          ],
+          "title": "Stance",
+          "type": "string"
+        },
+        "ThesisScore": {
+          "properties": {
+            "asset_return": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Asset Return"
+            },
+            "benchmark": {
+              "title": "Benchmark",
+              "type": "string"
+            },
+            "benchmark_return": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Benchmark Return"
+            },
+            "confidence": {
+              "title": "Confidence",
+              "type": "number"
+            },
+            "days_held": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Days Held"
+            },
+            "days_to_horizon": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Days To Horizon"
+            },
+            "entry_day": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entry Day"
+            },
+            "entry_price": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entry Price"
+            },
+            "excess_return": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Excess Return"
+            },
+            "initial_confidence": {
+              "title": "Initial Confidence",
+              "type": "number"
+            },
+            "last_day": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last Day"
+            },
+            "last_price": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last Price"
+            },
+            "max_drawdown": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Max Drawdown"
+            },
+            "missing": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Missing"
+            },
+            "outcome": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Outcome"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "outcome_method": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Outcome Method"
+            },
+            "stance": {
+              "$ref": "#/$defs/Stance"
+            },
+            "stance_return": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Stance Return"
+            },
+            "status": {
+              "$ref": "#/$defs/ThesisStatus"
+            },
+            "symbol": {
+              "title": "Symbol",
+              "type": "string"
+            },
+            "thesis_id": {
+              "title": "Thesis Id",
+              "type": "string"
+            },
+            "title": {
+              "title": "Title",
+              "type": "string"
+            }
+          },
+          "required": [
+            "thesis_id",
+            "title",
+            "stance",
+            "status",
+            "confidence",
+            "initial_confidence",
+            "symbol",
+            "benchmark",
+            "entry_day",
+            "entry_price",
+            "last_day",
+            "last_price",
+            "asset_return",
+            "benchmark_return",
+            "excess_return",
+            "stance_return",
+            "max_drawdown",
+            "days_held",
+            "days_to_horizon",
+            "outcome",
+            "outcome_method"
+          ],
+          "title": "ThesisScore",
+          "type": "object"
+        },
+        "ThesisStatus": {
+          "enum": [
+            "active",
+            "at_risk",
+            "broken",
+            "confirmed",
+            "archived"
+          ],
+          "title": "ThesisStatus",
+          "type": "string"
+        }
+      },
+      "properties": {
+        "calibration": {
+          "$ref": "#/$defs/Calibration"
+        },
+        "generated_at": {
+          "format": "date-time",
+          "title": "Generated At",
+          "type": "string"
+        },
+        "theses": {
+          "items": {
+            "$ref": "#/$defs/ThesisScore"
+          },
+          "title": "Theses",
+          "type": "array"
+        }
+      },
+      "required": [
+        "generated_at",
+        "theses",
+        "calibration"
+      ],
+      "title": "Scorecard",
+      "type": "object"
+    }
+  },
   "search": {
     "input": {
       "properties": {
@@ -4331,6 +6031,156 @@
         "hits"
       ],
       "title": "SearchResults",
+      "type": "object"
+    }
+  },
+  "seed_starter_pack": {
+    "input": {
+      "properties": {
+        "pack": {
+          "description": "semis, software, banks, energy or pharma",
+          "title": "Pack",
+          "type": "string"
+        }
+      },
+      "required": [
+        "pack"
+      ],
+      "title": "seed_starter_packArguments",
+      "type": "object"
+    },
+    "output": {
+      "properties": {
+        "companies_added": {
+          "title": "Companies Added",
+          "type": "integer"
+        },
+        "links_added": {
+          "title": "Links Added",
+          "type": "integer"
+        },
+        "links_already_present": {
+          "title": "Links Already Present",
+          "type": "integer"
+        },
+        "pack": {
+          "title": "Pack",
+          "type": "string"
+        }
+      },
+      "required": [
+        "pack",
+        "companies_added",
+        "links_added",
+        "links_already_present"
+      ],
+      "title": "SeedResult",
+      "type": "object"
+    }
+  },
+  "set_thesis_outcome": {
+    "input": {
+      "$defs": {
+        "Outcome": {
+          "enum": [
+            "right",
+            "wrong",
+            "unclear"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        }
+      },
+      "properties": {
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Why",
+          "title": "Note"
+        },
+        "outcome": {
+          "$ref": "#/$defs/Outcome"
+        },
+        "thesis_id": {
+          "title": "Thesis Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "thesis_id",
+        "outcome"
+      ],
+      "title": "set_thesis_outcomeArguments",
+      "type": "object"
+    },
+    "output": {
+      "$defs": {
+        "Outcome": {
+          "enum": [
+            "right",
+            "wrong",
+            "unclear"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        }
+      },
+      "properties": {
+        "decided_at": {
+          "format": "date-time",
+          "title": "Decided At",
+          "type": "string"
+        },
+        "method": {
+          "title": "Method",
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Note"
+        },
+        "outcome": {
+          "$ref": "#/$defs/Outcome"
+        },
+        "stance_return": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Stance Return"
+        },
+        "thesis_id": {
+          "title": "Thesis Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "thesis_id",
+        "outcome",
+        "method",
+        "decided_at",
+        "stance_return",
+        "note"
+      ],
+      "title": "ThesisOutcome",
       "type": "object"
     }
   },
@@ -4612,6 +6462,282 @@
       "type": "object"
     }
   },
+  "thesis_memo": {
+    "input": {
+      "properties": {
+        "thesis_id": {
+          "title": "Thesis Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "thesis_id"
+      ],
+      "title": "thesis_memoArguments",
+      "type": "object"
+    },
+    "output": {
+      "properties": {
+        "html_path": {
+          "title": "Html Path",
+          "type": "string"
+        },
+        "markdown": {
+          "title": "Markdown",
+          "type": "string"
+        },
+        "markdown_path": {
+          "title": "Markdown Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "markdown",
+        "markdown_path",
+        "html_path"
+      ],
+      "title": "MemoResult",
+      "type": "object"
+    }
+  },
+  "thesis_weak_points": {
+    "input": {
+      "properties": {
+        "thesis_id": {
+          "title": "Thesis Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "thesis_id"
+      ],
+      "title": "thesis_weak_pointsArguments",
+      "type": "object"
+    },
+    "output": {
+      "$defs": {
+        "AssumptionCheck": {
+          "properties": {
+            "claim_id": {
+              "title": "Claim Id",
+              "type": "string"
+            },
+            "claim_type": {
+              "$ref": "#/$defs/ClaimType"
+            },
+            "confidence": {
+              "title": "Confidence",
+              "type": "number"
+            },
+            "issues": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Issues",
+              "type": "array"
+            },
+            "primary_sources": {
+              "title": "Primary Sources",
+              "type": "integer"
+            },
+            "role": {
+              "$ref": "#/$defs/ThesisClaimRole"
+            },
+            "sources": {
+              "title": "Sources",
+              "type": "integer"
+            },
+            "text": {
+              "title": "Text",
+              "type": "string"
+            }
+          },
+          "required": [
+            "claim_id",
+            "text",
+            "role",
+            "claim_type",
+            "confidence",
+            "sources",
+            "primary_sources",
+            "issues"
+          ],
+          "title": "AssumptionCheck",
+          "type": "object"
+        },
+        "ClaimType": {
+          "enum": [
+            "fact",
+            "metric",
+            "inference",
+            "forecast",
+            "opinion"
+          ],
+          "title": "ClaimType",
+          "type": "string"
+        },
+        "Dependency": {
+          "properties": {
+            "confidence": {
+              "title": "Confidence",
+              "type": "number"
+            },
+            "entity_id": {
+              "title": "Entity Id",
+              "type": "string"
+            },
+            "link": {
+              "title": "Link",
+              "type": "string"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "source": {
+              "title": "Source",
+              "type": "string"
+            }
+          },
+          "required": [
+            "entity_id",
+            "name",
+            "link",
+            "confidence",
+            "source"
+          ],
+          "title": "Dependency",
+          "type": "object"
+        },
+        "OpposingView": {
+          "properties": {
+            "detail": {
+              "title": "Detail",
+              "type": "string"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "kind": {
+              "title": "Kind",
+              "type": "string"
+            },
+            "text": {
+              "title": "Text",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "id",
+            "text",
+            "detail"
+          ],
+          "title": "OpposingView",
+          "type": "object"
+        },
+        "Stance": {
+          "enum": [
+            "bullish",
+            "bearish",
+            "neutral",
+            "n/a"
+          ],
+          "title": "Stance",
+          "type": "string"
+        },
+        "ThesisClaimRole": {
+          "enum": [
+            "assumption",
+            "supporting",
+            "risk"
+          ],
+          "title": "ThesisClaimRole",
+          "type": "string"
+        }
+      },
+      "properties": {
+        "assumptions": {
+          "items": {
+            "$ref": "#/$defs/AssumptionCheck"
+          },
+          "title": "Assumptions",
+          "type": "array"
+        },
+        "confidence": {
+          "title": "Confidence",
+          "type": "number"
+        },
+        "opposing_views": {
+          "items": {
+            "$ref": "#/$defs/OpposingView"
+          },
+          "title": "Opposing Views",
+          "type": "array"
+        },
+        "retracted_links": {
+          "title": "Retracted Links",
+          "type": "integer"
+        },
+        "stance": {
+          "$ref": "#/$defs/Stance"
+        },
+        "statement": {
+          "title": "Statement",
+          "type": "string"
+        },
+        "subject": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Subject"
+        },
+        "text_only_triggers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Text Only Triggers",
+          "type": "array"
+        },
+        "thesis_id": {
+          "title": "Thesis Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "unwatched_dependencies": {
+          "items": {
+            "$ref": "#/$defs/Dependency"
+          },
+          "title": "Unwatched Dependencies",
+          "type": "array"
+        }
+      },
+      "required": [
+        "thesis_id",
+        "title",
+        "statement",
+        "stance",
+        "confidence",
+        "subject",
+        "assumptions",
+        "unwatched_dependencies",
+        "text_only_triggers",
+        "opposing_views",
+        "retracted_links"
+      ],
+      "title": "WeakPoints",
+      "type": "object"
+    }
+  },
   "timeline": {
     "input": {
       "properties": {
@@ -4763,6 +6889,439 @@
       "type": "object"
     }
   },
+  "track_thesis": {
+    "input": {
+      "properties": {
+        "benchmark": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Default: SPY",
+          "title": "Benchmark"
+        },
+        "entry_date": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Default: when the thesis was recorded",
+          "title": "Entry Date"
+        },
+        "entry_price": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Default: the close on the entry date",
+          "title": "Entry Price"
+        },
+        "stop": {
+          "default": false,
+          "description": "Stop tracking this thesis",
+          "title": "Stop",
+          "type": "boolean"
+        },
+        "thesis_id": {
+          "title": "Thesis Id",
+          "type": "string"
+        },
+        "ticker": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Instrument to track (default: the subject's ticker)",
+          "title": "Ticker"
+        }
+      },
+      "required": [
+        "thesis_id"
+      ],
+      "title": "track_thesisArguments",
+      "type": "object"
+    },
+    "output": {
+      "$defs": {
+        "Stance": {
+          "enum": [
+            "bullish",
+            "bearish",
+            "neutral",
+            "n/a"
+          ],
+          "title": "Stance",
+          "type": "string"
+        },
+        "ThesisClaim": {
+          "description": "Link from a thesis to a claim lineage (so it follows claim corrections).",
+          "properties": {
+            "claim_lineage_id": {
+              "title": "Claim Lineage Id",
+              "type": "string"
+            },
+            "role": {
+              "$ref": "#/$defs/ThesisClaimRole"
+            },
+            "weight": {
+              "title": "Weight",
+              "type": "number"
+            }
+          },
+          "required": [
+            "claim_lineage_id",
+            "role",
+            "weight"
+          ],
+          "title": "ThesisClaim",
+          "type": "object"
+        },
+        "ThesisClaimRole": {
+          "enum": [
+            "assumption",
+            "supporting",
+            "risk"
+          ],
+          "title": "ThesisClaimRole",
+          "type": "string"
+        },
+        "ThesisStatus": {
+          "enum": [
+            "active",
+            "at_risk",
+            "broken",
+            "confirmed",
+            "archived"
+          ],
+          "title": "ThesisStatus",
+          "type": "string"
+        },
+        "ThesisTrigger": {
+          "properties": {
+            "description": {
+              "title": "Description",
+              "type": "string"
+            },
+            "entity_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Entity Id"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "description",
+            "entity_id"
+          ],
+          "title": "ThesisTrigger",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "alert_threshold": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Alert Threshold"
+        },
+        "benchmark": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Benchmark"
+        },
+        "claims": {
+          "items": {
+            "$ref": "#/$defs/ThesisClaim"
+          },
+          "title": "Claims",
+          "type": "array"
+        },
+        "confidence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "entry_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entry At"
+        },
+        "entry_price": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entry Price"
+        },
+        "horizon": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Horizon"
+        },
+        "horizon_date": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Horizon Date"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "instrument": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Instrument"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Session Id"
+        },
+        "stance": {
+          "$ref": "#/$defs/Stance"
+        },
+        "statement": {
+          "title": "Statement",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/ThesisStatus"
+        },
+        "subject_entity_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Subject Entity Id"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "triggers": {
+          "items": {
+            "$ref": "#/$defs/ThesisTrigger"
+          },
+          "title": "Triggers",
+          "type": "array"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "statement",
+        "stance",
+        "horizon",
+        "confidence",
+        "status",
+        "subject_entity_id",
+        "session_id",
+        "created_at",
+        "updated_at",
+        "claims",
+        "triggers"
+      ],
+      "title": "Thesis",
+      "type": "object"
+    }
+  },
+  "undo_records": {
+    "input": {
+      "$defs": {
+        "RecordRef": {
+          "properties": {
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "type": {
+              "description": "claim, thesis, relation, hypothesis or evidence",
+              "title": "Type",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "id"
+          ],
+          "title": "RecordRef",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "reason": {
+          "default": "undone by the user",
+          "title": "Reason",
+          "type": "string"
+        },
+        "records": {
+          "description": "What to revert",
+          "items": {
+            "$ref": "#/$defs/RecordRef"
+          },
+          "title": "Records",
+          "type": "array"
+        },
+        "session_id": {
+          "description": "The session, from recent_records",
+          "title": "Session Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "session_id",
+        "records"
+      ],
+      "title": "undo_recordsArguments",
+      "type": "object"
+    },
+    "output": {
+      "$defs": {
+        "UndoOutcome": {
+          "properties": {
+            "done": {
+              "title": "Done",
+              "type": "boolean"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "result": {
+              "title": "Result",
+              "type": "string"
+            },
+            "type": {
+              "title": "Type",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "id",
+            "done",
+            "result"
+          ],
+          "title": "UndoOutcome",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "outcomes": {
+          "items": {
+            "$ref": "#/$defs/UndoOutcome"
+          },
+          "title": "Outcomes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "outcomes"
+      ],
+      "title": "UndoResult",
+      "type": "object"
+    }
+  },
   "unwatch": {
     "input": {
       "properties": {
@@ -4847,6 +7406,89 @@
   "update_thesis": {
     "input": {
       "$defs": {
+        "EventKind": {
+          "enum": [
+            "filing",
+            "news",
+            "earnings",
+            "price_move",
+            "macro",
+            "manual"
+          ],
+          "title": "EventKind",
+          "type": "string"
+        },
+        "MuteIn": {
+          "description": "Events matching every field given here stop raising alerts on the thesis.",
+          "properties": {
+            "entity": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Only events about this entity",
+              "title": "Entity"
+            },
+            "event_kind": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/EventKind"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Only this kind of event"
+            },
+            "form": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Only this SEC form, e.g. 10-Q",
+              "title": "Form"
+            },
+            "note": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Note"
+            },
+            "until": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Mute until (default: always)",
+              "title": "Until"
+            }
+          },
+          "title": "MuteIn",
+          "type": "object"
+        },
         "ThesisClaimIn": {
           "properties": {
             "claim_id": {
@@ -4929,6 +7571,15 @@
           "title": "Add Claims",
           "type": "array"
         },
+        "add_mutes": {
+          "default": [],
+          "description": "Stop alerts from matching events",
+          "items": {
+            "$ref": "#/$defs/MuteIn"
+          },
+          "title": "Add Mutes",
+          "type": "array"
+        },
         "add_triggers": {
           "default": [],
           "description": "New conditions that would invalidate it",
@@ -4937,6 +7588,21 @@
           },
           "title": "Add Triggers",
           "type": "array"
+        },
+        "alert_threshold": {
+          "anyOf": [
+            {
+              "maximum": 10.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Minimum alert score for this thesis",
+          "title": "Alert Threshold"
         },
         "confidence": {
           "anyOf": [
@@ -4952,6 +7618,19 @@
           "default": null,
           "title": "Confidence"
         },
+        "horizon": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "New horizon, e.g. 12m or FY2027 (counted from now)",
+          "title": "Horizon"
+        },
         "reason": {
           "description": "Why; kept in the thesis history",
           "title": "Reason",
@@ -4966,6 +7645,14 @@
           "title": "Remove Claim Ids",
           "type": "array"
         },
+        "remove_mute_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Remove Mute Ids",
+          "type": "array"
+        },
         "remove_trigger_ids": {
           "default": [],
           "items": {
@@ -4973,6 +7660,12 @@
           },
           "title": "Remove Trigger Ids",
           "type": "array"
+        },
+        "reset_alert_threshold": {
+          "default": false,
+          "description": "Go back to the global alert threshold",
+          "title": "Reset Alert Threshold",
+          "type": "boolean"
         },
         "status": {
           "anyOf": [
@@ -5084,6 +7777,30 @@
         }
       },
       "properties": {
+        "alert_threshold": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Alert Threshold"
+        },
+        "benchmark": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Benchmark"
+        },
         "claims": {
           "items": {
             "$ref": "#/$defs/ThesisClaim"
@@ -5102,6 +7819,31 @@
           "title": "Created At",
           "type": "string"
         },
+        "entry_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entry At"
+        },
+        "entry_price": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entry Price"
+        },
         "horizon": {
           "anyOf": [
             {
@@ -5113,9 +7855,34 @@
           ],
           "title": "Horizon"
         },
+        "horizon_date": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Horizon Date"
+        },
         "id": {
           "title": "Id",
           "type": "string"
+        },
+        "instrument": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Instrument"
         },
         "session_id": {
           "anyOf": [
@@ -5583,6 +8350,259 @@
         "changes"
       ],
       "title": "ChangeLog",
+      "type": "object"
+    }
+  },
+  "whatif": {
+    "input": {
+      "properties": {
+        "description": {
+          "description": "The hypothetical, e.g. 'TSMC fab outage halts CoWoS 3 months'",
+          "title": "Description",
+          "type": "string"
+        },
+        "entities": {
+          "description": "Companies the event would be about",
+          "items": {
+            "type": "string"
+          },
+          "title": "Entities",
+          "type": "array"
+        },
+        "materiality": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How much it matters (default: from the wording)",
+          "title": "Materiality"
+        },
+        "occurred_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Occurred At"
+        }
+      },
+      "required": [
+        "entities",
+        "description"
+      ],
+      "title": "whatif_toolArguments",
+      "type": "object"
+    },
+    "output": {
+      "$defs": {
+        "ImpactHit": {
+          "properties": {
+            "graph_score": {
+              "title": "Graph Score",
+              "type": "number"
+            },
+            "matched_trigger": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Matched Trigger"
+            },
+            "materiality": {
+              "default": 1.0,
+              "title": "Materiality",
+              "type": "number"
+            },
+            "paths": {
+              "items": {
+                "$ref": "#/$defs/ImpactPath"
+              },
+              "title": "Paths",
+              "type": "array"
+            },
+            "score": {
+              "title": "Score",
+              "type": "number"
+            },
+            "thesis_id": {
+              "title": "Thesis Id",
+              "type": "string"
+            },
+            "thesis_title": {
+              "title": "Thesis Title",
+              "type": "string"
+            },
+            "trigger_match": {
+              "default": 0.0,
+              "title": "Trigger Match",
+              "type": "number"
+            }
+          },
+          "required": [
+            "thesis_id",
+            "thesis_title",
+            "score",
+            "paths",
+            "graph_score"
+          ],
+          "title": "ImpactHit",
+          "type": "object"
+        },
+        "ImpactPath": {
+          "description": "One reason an event reaches a thesis, e.g. TSMC -SUPPLIES-> NVIDIA, assumption claim.",
+          "properties": {
+            "claim_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Claim Id"
+            },
+            "contribution": {
+              "title": "Contribution",
+              "type": "number"
+            },
+            "detail": {
+              "title": "Detail",
+              "type": "string"
+            },
+            "route": {
+              "title": "Route",
+              "type": "string"
+            },
+            "trigger_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Trigger Id"
+            },
+            "via": {
+              "title": "Via",
+              "type": "string"
+            }
+          },
+          "required": [
+            "route",
+            "via",
+            "detail",
+            "contribution"
+          ],
+          "title": "ImpactPath",
+          "type": "object"
+        },
+        "Stance": {
+          "enum": [
+            "bullish",
+            "bearish",
+            "neutral",
+            "n/a"
+          ],
+          "title": "Stance",
+          "type": "string"
+        },
+        "ThesisStatus": {
+          "enum": [
+            "active",
+            "at_risk",
+            "broken",
+            "confirmed",
+            "archived"
+          ],
+          "title": "ThesisStatus",
+          "type": "string"
+        },
+        "WhatIfHit": {
+          "properties": {
+            "confidence": {
+              "title": "Confidence",
+              "type": "number"
+            },
+            "hit": {
+              "$ref": "#/$defs/ImpactHit"
+            },
+            "stance": {
+              "$ref": "#/$defs/Stance"
+            },
+            "status": {
+              "$ref": "#/$defs/ThesisStatus"
+            },
+            "would_alert": {
+              "title": "Would Alert",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "hit",
+            "stance",
+            "status",
+            "confidence",
+            "would_alert"
+          ],
+          "title": "WhatIfHit",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "hits": {
+          "items": {
+            "$ref": "#/$defs/WhatIfHit"
+          },
+          "title": "Hits",
+          "type": "array"
+        },
+        "materiality": {
+          "title": "Materiality",
+          "type": "number"
+        },
+        "materiality_reason": {
+          "title": "Materiality Reason",
+          "type": "string"
+        },
+        "threshold": {
+          "title": "Threshold",
+          "type": "number"
+        }
+      },
+      "required": [
+        "description",
+        "materiality",
+        "materiality_reason",
+        "threshold",
+        "hits"
+      ],
+      "title": "WhatIfResult",
       "type": "object"
     }
   }

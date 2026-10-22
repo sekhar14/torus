@@ -1,7 +1,7 @@
 {
   "name": "torus",
   "displayName": "Torus research memory",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Persistent research knowledge graph: recalls prior theses and claims when you mention a company, and records new research as you work.",
   "author": {
     "name": "Torus contributors"

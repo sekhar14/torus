@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
 import time
 import traceback
@@ -50,6 +51,8 @@ class HookContext:
     paths: Paths
     mode: CaptureMode
     harness: str = DEFAULT_HARNESS
+    env: Mapping[str, str] = field(default_factory=dict, repr=False)
+    spawner: Callable[..., None] | None = field(default=None, repr=False)  # tests
     _session: Session | None = field(default=None, repr=False)
 
     def session(self) -> Session:
@@ -74,7 +77,7 @@ def _handlers() -> dict[str, Handler]:
         "user-prompt-submit": handlers.user_prompt_submit,
         "post-tool-use": handlers.post_tool_use,
         "stop": handlers.stop,
-        "pre-compact": handlers.stop,
+        "pre-compact": handlers.pre_compact,
         "session-end": handlers.session_end,
     }
 
@@ -108,8 +111,15 @@ def run_hook(
     env: Mapping[str, str] | None = None,
     clock: Clock | None = None,
     budget: float | None = None,
+    spawner: Callable[..., None] | None = None,
 ) -> str:
-    """Run one hook and return what to print on stdout. Never raises."""
+    """Run one hook and return what to print on stdout. Never raises.
+
+    Does nothing inside a background curator session (``TORUS_CURATOR=1``): that
+    session distils others and must not be captured or queued itself."""
+    environ = dict(env) if env is not None else dict(os.environ)
+    if environ.get("TORUS_CURATOR") == "1":
+        return ""
     started = time.perf_counter()
     try:
         p = paths(dict(env) if env is not None else None).ensure()
@@ -136,6 +146,8 @@ def run_hook(
                     paths=p,
                     mode=capture_mode(dict(env) if env is not None else None),
                     harness=(env or {}).get("TORUS_HARNESS", DEFAULT_HARNESS),
+                    env=environ,
+                    spawner=spawner,
                 )
                 result.append(handler(ctx))
         except BaseException as exc:

@@ -43,12 +43,49 @@ EXPECTED_TOOLS = {
     "add_event",
     "impact",
     "list_alerts",
+    "alert_stats",
     "resolve_alert",
     "watch",
     "unwatch",
     "list_watches",
     "neighbors",
     "find_paths",
+} | {
+    # workflow tools (torus.mcp.workflows)
+    "onboard",
+    "seed_starter_pack",
+    "next_mapping",
+    "complete_mapping",
+    "filing_text",
+    "audit",
+    "recent_records",
+    "undo_records",
+    "whatif",
+    "thesis_memo",
+    "thesis_weak_points",
+    "filing_diff",
+    "track_thesis",
+    "scorecard",
+    "set_thesis_outcome",
+}
+READ_ONLY_TOOLS = {
+    "recall",
+    "get_entity",
+    "search",
+    "timeline",
+    "what_changed",
+    "impact",
+    "list_alerts",
+    "alert_stats",
+    "list_watches",
+    "neighbors",
+    "find_paths",
+    "filing_text",
+    "audit",
+    "recent_records",
+    "whatif",
+    "thesis_weak_points",
+    "filing_diff",
 }
 
 
@@ -86,18 +123,7 @@ async def test_lists_expected_tools_with_annotations(client: Client) -> None:
     for tool in listed:
         assert tool.description, tool.name
         assert tool.annotations is not None
-        read_only = tool.name in {
-            "recall",
-            "get_entity",
-            "search",
-            "timeline",
-            "what_changed",
-            "impact",
-            "list_alerts",
-            "list_watches",
-            "neighbors",
-            "find_paths",
-        }
+        read_only = tool.name in READ_ONLY_TOOLS
         assert tool.annotations.read_only_hint is read_only, tool.name
 
 

@@ -21,6 +21,7 @@ from torus.core.models import AlertStatus, QueueStatus
 from torus.core.reference import SEC_TICKERS_FILENAME, ReferenceData
 from torus.core.store.migrate import latest_version
 from torus.core.store.sqlite import SQLiteBackend
+from torus.schedule import Scheduler
 
 EXPORT_FORMAT = 1
 
@@ -42,7 +43,7 @@ class Check:
 # -- doctor -------------------------------------------------------------------------
 
 
-def doctor(p: Paths) -> list[Check]:
+def doctor(p: Paths, scheduler: Scheduler | None = None) -> list[Check]:
     checks: list[Check] = []
 
     def add(name: str, level: Level, detail: str) -> None:
@@ -135,6 +136,13 @@ def doctor(p: Paths) -> list[Check]:
                 "watchers",
                 Level.OK,
                 f"{len(targets)} companies, {len(store.feeds())} feeds",
+            )
+        if targets or store.feeds():
+            schedule = (scheduler or Scheduler(p.home)).status()
+            add(
+                "schedule",
+                Level.OK if schedule else Level.WARN,
+                schedule or "nothing runs the watchers; set it up with `torus schedule install`",
             )
 
         parked = store.queue_items(statuses=[QueueStatus.PARKED])

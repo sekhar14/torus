@@ -13,17 +13,19 @@ import functools
 import os
 import threading
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Annotated, Literal, ParamSpec, TypeVar
 
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
-from mcp.types import ToolAnnotations
 from pydantic import BaseModel, Field
 
 from torus import __version__
-from torus.config import CaptureMode, capture_mode
+from torus.config import CaptureMode, capture_mode, paths
 from torus.core import graph, transcript
+from torus.core.alert_stats import AlertStats, alert_stats
+from torus.core.audit import audit
 from torus.core.changes import ChangeLog, timeline, what_changed
 from torus.core.clock import Clock, SystemClock
 from torus.core.detect import EntityDetector
@@ -57,6 +59,7 @@ from torus.core.models import (
     Thesis,
     ThesisClaimRole,
     ThesisHistoryEntry,
+    ThesisMute,
     ThesisStatus,
     Verdict,
 )
@@ -64,20 +67,19 @@ from torus.core.recall import RecallResult, recall, render_context
 from torus.core.reference import ReferenceData
 from torus.core.resolve import ResolutionStatus, Resolver
 from torus.core.store.base import Backend
+from torus.hooks import autodistill
+from torus.mcp.common import READ_ONLY, WRITE, Confidence, EntityRef
+from torus.mcp.common import aware as _aware
+from torus.mcp.workflows import register_workflow_tools
 from torus.protocol import instructions
+from torus.watchers.http import Fetcher
 
 ENV_HARNESS = "TORUS_HARNESS"
 ENV_SESSION = "TORUS_SESSION_ID"
 DISTILL_KIND = "distill_session"  # same kind the hooks enqueue
 
-READ_ONLY = ToolAnnotations(readOnlyHint=True, openWorldHint=False)
-WRITE = ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=False)
-
 P = ParamSpec("P")
 R = TypeVar("R")
-
-EntityRef = Annotated[str, Field(description="Ticker, CIK, company name, canonical key or id")]
-Confidence = Annotated[float, Field(ge=0.0, le=1.0, description="0 = guess, 1 = certain")]
 
 
 class RelationView(BaseModel):
@@ -108,6 +110,16 @@ class ThesisClaimIn(BaseModel):
     weight: float = Field(default=1.0, ge=0.0, le=1.0)
 
 
+class MuteIn(BaseModel):
+    """Events matching every field given here stop raising alerts on the thesis."""
+
+    entity: str | None = Field(default=None, description="Only events about this entity")
+    event_kind: EventKind | None = Field(default=None, description="Only this kind of event")
+    form: str | None = Field(default=None, description="Only this SEC form, e.g. 10-Q")
+    until: datetime | None = Field(default=None, description="Mute until (default: always)")
+    note: str | None = None
+
+
 class AlertView(BaseModel):
     alert: Alert
     event: Event
@@ -126,8 +138,38 @@ class ImpactResult(BaseModel):
     hits: list[ImpactHit]
 
 
+class AlertGroup(BaseModel):
+    thesis_id: str
+    thesis_title: str
+    thesis_status: ThesisStatus
+    thesis_confidence: float
+    top_score: float
+    alerts: list[AlertView]
+
+
 class AlertList(BaseModel):
     alerts: list[AlertView]
+    groups: list[AlertGroup] = Field(
+        default=[], description="The same alerts grouped by thesis (when grouped=true)"
+    )
+
+
+def _group_alerts(views: list[AlertView]) -> list[AlertGroup]:
+    groups: dict[str, AlertGroup] = {}
+    for view in views:
+        group = groups.get(view.alert.thesis_id)
+        if group is None:
+            group = groups[view.alert.thesis_id] = AlertGroup(
+                thesis_id=view.alert.thesis_id,
+                thesis_title=view.thesis_title,
+                thesis_status=view.thesis_status,
+                thesis_confidence=view.thesis_confidence,
+                top_score=view.alert.score,
+                alerts=[],
+            )
+        group.alerts.append(view)
+        group.top_score = max(group.top_score, view.alert.score)
+    return sorted(groups.values(), key=lambda g: (-g.top_score, g.thesis_id))
 
 
 def _alert_view(store: Backend, alert: Alert) -> AlertView:
@@ -246,13 +288,7 @@ class SearchResults(BaseModel):
 class ThesisView(BaseModel):
     thesis: Thesis
     history: list[ThesisHistoryEntry]
-
-
-def _aware(value: datetime | None) -> datetime | None:
-    """Treat naive datetimes from agents as UTC."""
-    if value is None or value.tzinfo is not None:
-        return value
-    return value.replace(tzinfo=UTC)
+    mutes: list[ThesisMute] = []
 
 
 class TorusTools:
@@ -266,8 +302,13 @@ class TorusTools:
         harness: str | None = None,
         external_session_id: str | None = None,
         mode: CaptureMode | None = None,
+        home: Path | None = None,
+        fetcher: Fetcher | None = None,
     ) -> None:
         self.store = store
+        self.reference = reference
+        self.home = home or paths().home
+        self.fetcher = fetcher  # None: real HTTP (tests inject recorded responses)
         self.mode = mode or capture_mode()
         self.clock = clock or SystemClock()
         self.resolver = Resolver(store, reference)
@@ -277,6 +318,7 @@ class TorusTools:
         self.lock = threading.RLock()
         self._session_id: str | None = None
         self.job_session_id: str | None = None
+        self.mapping_job: str | None = None  # queue id of a leased map_company job
 
     def session_id(self) -> str:
         """The session new records are attributed to.
@@ -564,7 +606,7 @@ def build_server(tools: TorusTools) -> MCPServer:
             valid_from=_aware(valid_from),
             valid_to=_aware(valid_to),
             # While a distillation job is leased, the caller is the curator.
-            source="curator" if tools.job_session_id else "agent",
+            source="curator" if tools.job_session_id or tools.mapping_job else "agent",
         )
 
     @server.tool(annotations=WRITE)
@@ -620,9 +662,66 @@ def build_server(tools: TorusTools) -> MCPServer:
             list[TriggerIn], Field(description="New conditions that would invalidate it")
         ] = [],  # noqa: B006
         remove_trigger_ids: list[str] = [],  # noqa: B006
+        alert_threshold: Annotated[
+            float | None,
+            Field(ge=0.0, le=10.0, description="Minimum alert score for this thesis"),
+        ] = None,
+        reset_alert_threshold: Annotated[
+            bool, Field(description="Go back to the global alert threshold")
+        ] = False,
+        add_mutes: Annotated[
+            list[MuteIn], Field(description="Stop alerts from matching events")
+        ] = [],  # noqa: B006
+        remove_mute_ids: list[str] = [],  # noqa: B006
+        horizon: Annotated[
+            str | None, Field(description="New horizon, e.g. 12m or FY2027 (counted from now)")
+        ] = None,
     ) -> Thesis:
         """Revise a thesis: status, confidence, the claims it rests on, and its
-        triggers, in one atomic step. Everything is kept in its history."""
+        triggers, in one atomic step. Everything is kept in its history.
+
+        Also tunes its alerts: a threshold of its own, and mutes (e.g. no alerts
+        for a supplier's routine 10-Qs)."""
+        with store.transaction():
+            if horizon is not None:
+                store.set_thesis_horizon(thesis_id, horizon)
+            if reset_alert_threshold:
+                store.set_alert_threshold(thesis_id, None)
+            elif alert_threshold is not None:
+                store.set_alert_threshold(thesis_id, alert_threshold)
+            for mute in add_mutes:
+                store.add_thesis_mute(
+                    thesis_id,
+                    entity_id=tools.entity(mute.entity).id if mute.entity else None,
+                    event_kind=mute.event_kind,
+                    form=mute.form,
+                    until=_aware(mute.until),
+                    note=mute.note,
+                )
+            for mute_id in remove_mute_ids:
+                if not store.remove_thesis_mute(mute_id):
+                    raise NotFoundError("thesis mute", mute_id)
+            return _revise(
+                thesis_id,
+                reason,
+                status,
+                confidence,
+                add_claims,
+                remove_claim_ids,
+                add_triggers,
+                remove_trigger_ids,
+            )
+
+    def _revise(
+        thesis_id: str,
+        reason: str,
+        status: ThesisStatus | None,
+        confidence: float | None,
+        add_claims: list[ThesisClaimIn],
+        remove_claim_ids: list[str],
+        add_triggers: list[TriggerIn],
+        remove_trigger_ids: list[str],
+    ) -> Thesis:
         return store.revise_thesis(
             thesis_id,
             reason,
@@ -665,6 +764,10 @@ def build_server(tools: TorusTools) -> MCPServer:
         kind: EventKind = EventKind.MANUAL,
         uri: str | None = None,
         summary: str | None = None,
+        materiality: Annotated[
+            float | None,
+            Field(ge=0.0, le=1.0, description="How much it matters (default 1.0)"),
+        ] = None,
     ) -> EventResult:
         """Record an event and raise alerts on theses it may affect (through the
         companies involved and their suppliers, customers and competitors)."""
@@ -679,6 +782,7 @@ def build_server(tools: TorusTools) -> MCPServer:
             source="agent",
             uri=uri,
             summary=summary,
+            materiality=materiality,
         )
         return EventResult(
             event=result.event,
@@ -703,12 +807,26 @@ def build_server(tools: TorusTools) -> MCPServer:
     def list_alerts(
         status: AlertStatus = AlertStatus.OPEN,
         thesis_id: str | None = None,
+        grouped: Annotated[
+            bool, Field(description="Also group the alerts by thesis, to judge each once")
+        ] = False,
     ) -> AlertList:
-        """Alerts raised by events on theses, highest score first."""
+        """Alerts raised by events on theses, highest score first. Each shows how
+        its score was built: graph score x event materiality x (1 + trigger match)."""
         found = store.alerts(
             statuses=[status], thesis_ids=[thesis_id] if thesis_id is not None else None
         )
-        return AlertList(alerts=[_alert_view(store, a) for a in found])
+        views = [_alert_view(store, a) for a in found]
+        return AlertList(alerts=views, groups=_group_alerts(views) if grouped else [])
+
+    @server.tool(name="alert_stats", annotations=READ_ONLY)
+    @guard
+    def alert_stats_tool(
+        since: Annotated[datetime | None, Field(description="Only alerts raised since")] = None,
+    ) -> AlertStats:
+        """How useful alerts have been: verdicts, and the share judged related
+        (precision) by source, form, hops and materiality."""
+        return alert_stats(store, _aware(since))
 
     @server.tool(annotations=WRITE)
     @guard
@@ -863,7 +981,11 @@ def build_server(tools: TorusTools) -> MCPServer:
             item = store.complete_work(queue_id, result={"summary": summary})
         tools.job_session_id = None
         remaining = len(store.queue_items(kind=DISTILL_KIND, statuses=[QueueStatus.PENDING]))
+        if remaining == 0:
+            autodistill.release_lock(tools.home)  # a later session may start a curator
         return DistillationOutcome(queue_id=item.id, status=item.status, remaining=remaining)
+
+    register_workflow_tools(server, tools)
 
     # -- resources ----------------------------------------------------------
 
@@ -880,7 +1002,9 @@ def build_server(tools: TorusTools) -> MCPServer:
     def thesis_resource(thesis_id: str) -> str:
         """A thesis with its full status/confidence history."""
         view = ThesisView(
-            thesis=store.get_thesis(thesis_id), history=store.thesis_history(thesis_id)
+            thesis=store.get_thesis(thesis_id),
+            history=store.thesis_history(thesis_id),
+            mutes=store.thesis_mutes(thesis_id),
         )
         return view.model_dump_json(indent=2)
 
@@ -896,6 +1020,19 @@ def build_server(tools: TorusTools) -> MCPServer:
         changes = what_changed(store, now - timedelta(days=7)).changes
         lines.append(f"Changes in the last 7 days: {len(changes)}")
         lines += [f"- {c.at:%Y-%m-%d} {c.kind.value}: {c.summary}" for c in changes[-20:]]
+        health = audit(store, now)
+        if health.findings:
+            severities = health.by_severity
+            lines.append(
+                f"Graph audit: {severities.get('high', 0)} high, {severities.get('medium', 0)}"
+                f" medium, {severities.get('low', 0)} low findings (/torus:audit)."
+            )
+        stats = alert_stats(store, now - timedelta(days=90))
+        if stats.judged:
+            lines.append(
+                f"Alert precision (90 days): {stats.precision:.0%} of {stats.judged} judged"
+                f" alerts were related; {stats.open} open."
+            )
         return "\n".join(lines)
 
     return server

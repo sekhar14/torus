@@ -1,0 +1,401 @@
+{
+  "name": "software",
+  "version": 1,
+  "title": "Cloud and enterprise software",
+  "description": "Hyperscale clouds (AWS, Azure, Google Cloud, Oracle) and the software companies that run on them, with competitors in databases and analytics, applications, observability and security. A starting point to verify and extend, not a source of truth.",
+  "entities": [
+    {
+      "ref": "MSFT",
+      "ticker": "MSFT",
+      "name": "Microsoft Corp",
+      "aliases": [
+        "Microsoft",
+        "Azure"
+      ]
+    },
+    {
+      "ref": "AMZN",
+      "ticker": "AMZN",
+      "name": "Amazon.com Inc",
+      "aliases": [
+        "Amazon",
+        "AWS",
+        "Amazon Web Services"
+      ]
+    },
+    {
+      "ref": "GOOGL",
+      "ticker": "GOOGL",
+      "name": "Alphabet Inc",
+      "aliases": [
+        "Google",
+        "Google Cloud"
+      ]
+    },
+    {
+      "ref": "ORCL",
+      "ticker": "ORCL",
+      "name": "Oracle Corp",
+      "aliases": [
+        "Oracle"
+      ]
+    },
+    {
+      "ref": "NVDA",
+      "ticker": "NVDA",
+      "name": "NVIDIA Corp",
+      "aliases": [
+        "Nvidia"
+      ]
+    },
+    {
+      "ref": "CRM",
+      "ticker": "CRM",
+      "name": "Salesforce Inc",
+      "aliases": [
+        "Salesforce"
+      ]
+    },
+    {
+      "ref": "SAP",
+      "ticker": "SAP",
+      "name": "SAP SE"
+    },
+    {
+      "ref": "NOW",
+      "ticker": "NOW",
+      "name": "ServiceNow Inc",
+      "aliases": [
+        "ServiceNow"
+      ]
+    },
+    {
+      "ref": "WDAY",
+      "ticker": "WDAY",
+      "name": "Workday Inc",
+      "aliases": [
+        "Workday"
+      ]
+    },
+    {
+      "ref": "SNOW",
+      "ticker": "SNOW",
+      "name": "Snowflake Inc",
+      "aliases": [
+        "Snowflake"
+      ]
+    },
+    {
+      "ref": "MDB",
+      "ticker": "MDB",
+      "name": "MongoDB Inc",
+      "aliases": [
+        "MongoDB"
+      ]
+    },
+    {
+      "ref": "DDOG",
+      "ticker": "DDOG",
+      "name": "Datadog Inc",
+      "aliases": [
+        "Datadog"
+      ]
+    },
+    {
+      "ref": "DT",
+      "ticker": "DT",
+      "name": "Dynatrace Inc",
+      "aliases": [
+        "Dynatrace"
+      ]
+    },
+    {
+      "ref": "CRWD",
+      "ticker": "CRWD",
+      "name": "CrowdStrike Holdings Inc",
+      "aliases": [
+        "CrowdStrike"
+      ]
+    },
+    {
+      "ref": "PANW",
+      "ticker": "PANW",
+      "name": "Palo Alto Networks Inc",
+      "aliases": [
+        "Palo Alto Networks"
+      ]
+    },
+    {
+      "ref": "ZS",
+      "ticker": "ZS",
+      "name": "Zscaler Inc",
+      "aliases": [
+        "Zscaler"
+      ]
+    },
+    {
+      "ref": "NET",
+      "ticker": "NET",
+      "name": "Cloudflare Inc",
+      "aliases": [
+        "Cloudflare"
+      ]
+    },
+    {
+      "ref": "OKTA",
+      "ticker": "OKTA",
+      "name": "Okta Inc",
+      "aliases": [
+        "Okta"
+      ]
+    },
+    {
+      "ref": "SHOP",
+      "ticker": "SHOP",
+      "name": "Shopify Inc",
+      "aliases": [
+        "Shopify"
+      ]
+    }
+  ],
+  "relations": [
+    [
+      "NVDA",
+      "SUPPLIES",
+      "MSFT",
+      0.9,
+      "data-center GPUs for Azure"
+    ],
+    [
+      "NVDA",
+      "SUPPLIES",
+      "AMZN",
+      0.9,
+      "data-center GPUs for AWS"
+    ],
+    [
+      "NVDA",
+      "SUPPLIES",
+      "GOOGL",
+      0.85,
+      "data-center GPUs for Google Cloud"
+    ],
+    [
+      "NVDA",
+      "SUPPLIES",
+      "ORCL",
+      0.9,
+      "data-center GPUs for Oracle Cloud Infrastructure"
+    ],
+    [
+      "AMZN",
+      "SUPPLIES",
+      "SNOW",
+      0.8,
+      "Snowflake runs mostly on AWS"
+    ],
+    [
+      "MSFT",
+      "SUPPLIES",
+      "SNOW",
+      0.6,
+      "Snowflake also runs on Azure"
+    ],
+    [
+      "GOOGL",
+      "SUPPLIES",
+      "SNOW",
+      0.5,
+      "Snowflake also runs on Google Cloud"
+    ],
+    [
+      "AMZN",
+      "SUPPLIES",
+      "MDB",
+      0.7,
+      "MongoDB Atlas runs on AWS, Azure and Google Cloud"
+    ],
+    [
+      "MSFT",
+      "SUPPLIES",
+      "MDB",
+      0.5,
+      "MongoDB Atlas on Azure"
+    ],
+    [
+      "GOOGL",
+      "SUPPLIES",
+      "MDB",
+      0.5,
+      "MongoDB Atlas on Google Cloud"
+    ],
+    [
+      "AMZN",
+      "SUPPLIES",
+      "CRM",
+      0.7,
+      "Salesforce infrastructure partnership with AWS"
+    ],
+    [
+      "AMZN",
+      "SUPPLIES",
+      "WDAY",
+      0.6,
+      "Workday runs on AWS"
+    ],
+    [
+      "AMZN",
+      "SUPPLIES",
+      "OKTA",
+      0.7,
+      "Okta runs on AWS"
+    ],
+    [
+      "AMZN",
+      "SUPPLIES",
+      "CRWD",
+      0.6,
+      "CrowdStrike Falcon runs on AWS"
+    ],
+    [
+      "AMZN",
+      "SUPPLIES",
+      "DDOG",
+      0.6,
+      "Datadog is hosted largely on AWS"
+    ],
+    [
+      "GOOGL",
+      "SUPPLIES",
+      "SHOP",
+      0.6,
+      "Shopify runs on Google Cloud"
+    ],
+    [
+      "MSFT",
+      "COMPETES_WITH",
+      "AMZN",
+      0.9,
+      "cloud infrastructure (Azure vs AWS)"
+    ],
+    [
+      "AMZN",
+      "COMPETES_WITH",
+      "GOOGL",
+      0.9,
+      "cloud infrastructure (AWS vs Google Cloud)"
+    ],
+    [
+      "MSFT",
+      "COMPETES_WITH",
+      "GOOGL",
+      0.9,
+      "cloud, productivity software and AI"
+    ],
+    [
+      "ORCL",
+      "COMPETES_WITH",
+      "AMZN",
+      0.7,
+      "cloud infrastructure (OCI vs AWS)"
+    ],
+    [
+      "CRM",
+      "COMPETES_WITH",
+      "MSFT",
+      0.7,
+      "CRM (Salesforce vs Dynamics 365)"
+    ],
+    [
+      "SAP",
+      "COMPETES_WITH",
+      "ORCL",
+      0.9,
+      "ERP applications"
+    ],
+    [
+      "WDAY",
+      "COMPETES_WITH",
+      "SAP",
+      0.8,
+      "HR and finance applications"
+    ],
+    [
+      "WDAY",
+      "COMPETES_WITH",
+      "ORCL",
+      0.8,
+      "HR and finance applications"
+    ],
+    [
+      "NOW",
+      "COMPETES_WITH",
+      "CRM",
+      0.6,
+      "service management and workflow"
+    ],
+    [
+      "SNOW",
+      "COMPETES_WITH",
+      "GOOGL",
+      0.7,
+      "cloud data warehouses (Snowflake vs BigQuery)"
+    ],
+    [
+      "SNOW",
+      "COMPETES_WITH",
+      "MSFT",
+      0.6,
+      "cloud data platforms (Snowflake vs Fabric)"
+    ],
+    [
+      "MDB",
+      "COMPETES_WITH",
+      "ORCL",
+      0.6,
+      "operational databases"
+    ],
+    [
+      "DDOG",
+      "COMPETES_WITH",
+      "DT",
+      0.8,
+      "observability"
+    ],
+    [
+      "CRWD",
+      "COMPETES_WITH",
+      "PANW",
+      0.9,
+      "endpoint and platform security"
+    ],
+    [
+      "CRWD",
+      "COMPETES_WITH",
+      "MSFT",
+      0.8,
+      "endpoint security (Falcon vs Defender)"
+    ],
+    [
+      "PANW",
+      "COMPETES_WITH",
+      "ZS",
+      0.8,
+      "network security and secure access"
+    ],
+    [
+      "ZS",
+      "COMPETES_WITH",
+      "NET",
+      0.7,
+      "zero-trust network access"
+    ],
+    [
+      "OKTA",
+      "COMPETES_WITH",
+      "MSFT",
+      0.8,
+      "identity (Okta vs Entra ID)"
+    ]
+  ]
+}

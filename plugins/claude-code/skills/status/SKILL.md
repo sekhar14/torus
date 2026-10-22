@@ -8,12 +8,16 @@ description: Show the state of the Torus research memory - theses at risk, recen
 Give the user a short overview of their research memory.
 
 1. Read the `torus://digest` resource from the torus MCP server. It lists theses
-   marked at risk and changes from the last 7 days.
+   marked at risk, changes from the last 7 days, graph audit findings by
+   severity, and how often recent alerts were judged related.
 2. If the user named a company or ticker, also call `recall` for it and
    summarise its active theses (status, confidence, horizon) and the most recent
    claims, with dates.
 3. If the user asked about a period ("since Monday", "this month"), call
    `what_changed` with that start date.
+4. Point to the next step when there is one: `/torus:review` for open alerts,
+   `/torus:audit` for high-severity findings, `/torus:scorecard` if theses are
+   tracked.
 
 Keep it brief: a few bullet points per section, ids in parentheses so the user
 can ask follow-up questions. Don't record anything while doing this.

@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 from torus.config import CaptureMode
 from torus.core.detect import EntityDetector
 from torus.core.models import AlertStatus, QueueStatus, ThesisStatus
+from torus.core.onboard import MAP_KIND
 from torus.core.recall import recall, render_context
-from torus.hooks import HookContext, context_output
+from torus.hooks import HookContext, autodistill, context_output
+from torus.hooks.autodistill import AutoDistill
 
 DISTILL_KIND = "distill_session"
 PROMPT_BUDGET_TOKENS = 1200
@@ -54,10 +57,25 @@ def session_start(ctx: HookContext) -> str | None:
         for item in ctx.store.queue_items(kind=DISTILL_KIND, statuses=[QueueStatus.PENDING])
         if item.payload.get("session_id") != session.id
     ]
-    if pending:
+    auto = autodistill.mode(ctx.store)
+    if pending and auto is AutoDistill.ASK:
         lines.append(
             f"- {len(pending)} earlier research session(s) are queued for distillation."
-            " The user can run /torus:distill to have the curator add them to the graph."
+            " Offer the user, once and briefly, to run /torus:distill in the background now"
+            " so the curator adds them to the graph."
+        )
+    elif pending and auto is AutoDistill.ON:
+        lines.append(
+            f"- {len(pending)} earlier research session(s) are queued; a background curator"
+            " distils them automatically."
+        )
+    mapping = ctx.store.queue_items(kind=MAP_KIND, statuses=[QueueStatus.PENDING])
+    if mapping:
+        lines.append(
+            f"- {len(mapping)} onboarded "
+            + ("company is" if len(mapping) == 1 else "companies are")
+            + " waiting to be mapped from their annual reports."
+            " The user can run /torus:onboard to finish."
         )
     if not lines:
         return None
@@ -111,15 +129,66 @@ def post_tool_use(ctx: HookContext) -> str | None:
     return None
 
 
+RECEIPT_SETTING = "capture_receipts"
+NOUNS = {
+    "thesis": ("thesis", "theses"),
+    "claim": ("claim", "claims"),
+    "evidence": ("source", "sources"),
+    "relation": ("link", "links"),
+    "hypothesis": ("ruled-out idea", "ruled-out ideas"),
+}
+
+
 def stop(ctx: HookContext) -> str | None:
-    """Queue the session for distillation if it was research (Stop, PreCompact)."""
+    """Queue the session for distillation if it was research, and tell the user
+    what this turn recorded (a receipt they can undo)."""
+    _maybe_enqueue(ctx)
+    return _receipt(ctx)
+
+
+def pre_compact(ctx: HookContext) -> str | None:
     _maybe_enqueue(ctx)
     return None
+
+
+def _receipt(ctx: HookContext) -> str | None:
+    if (ctx.store.get_setting(RECEIPT_SETTING) or "on").strip().lower() == "off":
+        return None
+    session = ctx.session()
+    records = ctx.store.session_records(session.id)
+    key = f"receipt:{session.id}"
+    seen = int((ctx.store.get_state(key) or {}).get("count", 0))
+    new = records[seen:]
+    if not new:
+        return None
+    ctx.store.set_state(key, {"count": len(records)})
+    counts: dict[str, int] = {}
+    for object_type, _ in new:
+        counts[object_type] = counts.get(object_type, 0) + 1
+    parts = [
+        f"{n} {NOUNS[t][0] if n == 1 else NOUNS[t][1]}" for t in NOUNS if (n := counts.get(t, 0))
+    ]
+    listed = ", ".join(parts[:-1]) + (" and " if len(parts) > 1 else "") + parts[-1]
+    return json.dumps(
+        {
+            "systemMessage": f"Torus recorded {listed} this turn."
+            " Run /torus:undo to revert any of it."
+        }
+    )
 
 
 def session_end(ctx: HookContext) -> str | None:
     _maybe_enqueue(ctx)
     ctx.store.end_session(ctx.session().id)
+    pending = len(ctx.store.queue_items(kind=DISTILL_KIND, statuses=[QueueStatus.PENDING]))
+    outcome = autodistill.maybe_start(
+        ctx.store,
+        ctx.paths.home,
+        ctx.env,
+        pending,
+        spawner=ctx.spawner or autodistill.spawn_detached,
+    )
+    logging.getLogger("torus.hooks").info("auto-distill: %s", outcome)
     return None
 
 

@@ -26,7 +26,7 @@
     "Stop": [
       {
         "hooks": [
-          { "type": "command", "command": "torus", "args": ["hook", "stop"], "timeout": 15, "async": true }
+          { "type": "command", "command": "torus", "args": ["hook", "stop"], "timeout": 15 }
         ]
       }
     ],

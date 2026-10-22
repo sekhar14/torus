@@ -12,7 +12,7 @@ on the filing URL, so a repeated check can never create duplicates.
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 
@@ -179,6 +179,7 @@ class EdgarWatcher:
         reference: ReferenceData | None = None,
         forms: Sequence[str] = tuple(DEFAULT_FORMS),
         backfill_days: int = DEFAULT_BACKFILL_DAYS,
+        differ: Callable[[str, Filing, list[Filing]], str | None] | None = None,
     ) -> None:
         if "@" not in contact:
             raise ValueError("the SEC requires a contact email in the User-Agent")
@@ -190,6 +191,8 @@ class EdgarWatcher:
         self.reference = reference
         self.forms = frozenset(forms)
         self.backfill_days = backfill_days
+        # Summarises what changed in a 10-K/10-Q's risk factors; None to skip.
+        self.differ = differ
 
     def check(self, entity: Entity) -> SourceReport:
         cik = entity_cik(entity, self.reference)
@@ -223,6 +226,19 @@ class EdgarWatcher:
             ]
         report.checked = len(filings)
 
+        # Risk-factor changes are read before the transaction: they need downloads.
+        changes: dict[str, str] = {}
+        if self.differ is not None:
+            for filing in new:
+                if filing.form in self.forms:
+                    try:
+                        summary = self.differ(company, filing, filings)
+                    except Exception as exc:  # a diff is a bonus; never lose the event
+                        report.notes.append(f"risk factor diff failed: {exc}")
+                        summary = None
+                    if summary:
+                        changes[filing.accession] = summary
+
         # One transaction per company: all of its new filings land, or none do.
         with self.store.transaction():
             for filing in sorted(new, key=lambda f: (f.occurred_at, f.accession)):
@@ -238,7 +254,10 @@ class EdgarWatcher:
                     [entity.id],
                     source="edgar",
                     uri=filing.url,
-                    summary=filing.description or None,
+                    summary=" ".join(
+                        p for p in (filing.description, changes.get(filing.accession)) if p
+                    )
+                    or None,
                     payload={
                         "cik": cik,
                         "accession": filing.accession,

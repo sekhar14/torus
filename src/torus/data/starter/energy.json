@@ -1,0 +1,338 @@
+{
+  "name": "energy",
+  "version": 1,
+  "title": "Oil, gas and energy infrastructure",
+  "description": "Integrated majors, US producers, oilfield services, refiners, pipelines and LNG: the service companies producers depend on, and the main competitive sets. A starting point to verify and extend, not a source of truth.",
+  "entities": [
+    {
+      "ref": "XOM",
+      "ticker": "XOM",
+      "name": "Exxon Mobil Corp",
+      "aliases": [
+        "ExxonMobil",
+        "Exxon"
+      ]
+    },
+    {
+      "ref": "CVX",
+      "ticker": "CVX",
+      "name": "Chevron Corp",
+      "aliases": [
+        "Chevron"
+      ]
+    },
+    {
+      "ref": "COP",
+      "ticker": "COP",
+      "name": "ConocoPhillips"
+    },
+    {
+      "ref": "OXY",
+      "ticker": "OXY",
+      "name": "Occidental Petroleum Corp",
+      "aliases": [
+        "Occidental"
+      ]
+    },
+    {
+      "ref": "EOG",
+      "ticker": "EOG",
+      "name": "EOG Resources Inc",
+      "aliases": [
+        "EOG"
+      ]
+    },
+    {
+      "ref": "DVN",
+      "ticker": "DVN",
+      "name": "Devon Energy Corp",
+      "aliases": [
+        "Devon"
+      ]
+    },
+    {
+      "ref": "SLB",
+      "ticker": "SLB",
+      "name": "SLB NV",
+      "aliases": [
+        "Schlumberger",
+        "SLB"
+      ]
+    },
+    {
+      "ref": "HAL",
+      "ticker": "HAL",
+      "name": "Halliburton Co",
+      "aliases": [
+        "Halliburton"
+      ]
+    },
+    {
+      "ref": "BKR",
+      "ticker": "BKR",
+      "name": "Baker Hughes Co",
+      "aliases": [
+        "Baker Hughes"
+      ]
+    },
+    {
+      "ref": "PSX",
+      "ticker": "PSX",
+      "name": "Phillips 66"
+    },
+    {
+      "ref": "VLO",
+      "ticker": "VLO",
+      "name": "Valero Energy Corp",
+      "aliases": [
+        "Valero"
+      ]
+    },
+    {
+      "ref": "MPC",
+      "ticker": "MPC",
+      "name": "Marathon Petroleum Corp",
+      "aliases": [
+        "Marathon Petroleum"
+      ]
+    },
+    {
+      "ref": "KMI",
+      "ticker": "KMI",
+      "name": "Kinder Morgan Inc",
+      "aliases": [
+        "Kinder Morgan"
+      ]
+    },
+    {
+      "ref": "WMB",
+      "ticker": "WMB",
+      "name": "Williams Companies Inc",
+      "aliases": [
+        "Williams"
+      ]
+    },
+    {
+      "ref": "ET",
+      "ticker": "ET",
+      "name": "Energy Transfer LP",
+      "aliases": [
+        "Energy Transfer"
+      ]
+    },
+    {
+      "ref": "LNG",
+      "ticker": "LNG",
+      "name": "Cheniere Energy Inc",
+      "aliases": [
+        "Cheniere"
+      ]
+    },
+    {
+      "ref": "SHEL",
+      "ticker": "SHEL",
+      "name": "Shell PLC",
+      "aliases": [
+        "Shell"
+      ]
+    },
+    {
+      "ref": "BP",
+      "ticker": "BP",
+      "name": "BP PLC"
+    },
+    {
+      "ref": "TTE",
+      "ticker": "TTE",
+      "name": "TotalEnergies SE",
+      "aliases": [
+        "TotalEnergies",
+        "Total"
+      ]
+    }
+  ],
+  "relations": [
+    [
+      "SLB",
+      "SUPPLIES",
+      "XOM",
+      0.6,
+      "oilfield services and equipment"
+    ],
+    [
+      "SLB",
+      "SUPPLIES",
+      "CVX",
+      0.6,
+      "oilfield services and equipment"
+    ],
+    [
+      "SLB",
+      "SUPPLIES",
+      "COP",
+      0.5,
+      "oilfield services and equipment"
+    ],
+    [
+      "HAL",
+      "SUPPLIES",
+      "EOG",
+      0.5,
+      "completions and pressure pumping in US shale"
+    ],
+    [
+      "HAL",
+      "SUPPLIES",
+      "DVN",
+      0.5,
+      "completions and pressure pumping in US shale"
+    ],
+    [
+      "HAL",
+      "SUPPLIES",
+      "OXY",
+      0.5,
+      "completions and pressure pumping in US shale"
+    ],
+    [
+      "BKR",
+      "SUPPLIES",
+      "XOM",
+      0.5,
+      "oilfield equipment and turbomachinery"
+    ],
+    [
+      "WMB",
+      "SUPPLIES",
+      "LNG",
+      0.6,
+      "Transco pipeline gas supply to Gulf Coast LNG terminals"
+    ],
+    [
+      "KMI",
+      "SUPPLIES",
+      "LNG",
+      0.5,
+      "natural gas transport to Gulf Coast LNG terminals"
+    ],
+    [
+      "XOM",
+      "COMPETES_WITH",
+      "CVX",
+      0.9,
+      "integrated oil and gas"
+    ],
+    [
+      "XOM",
+      "COMPETES_WITH",
+      "SHEL",
+      0.8,
+      "integrated oil and gas"
+    ],
+    [
+      "SHEL",
+      "COMPETES_WITH",
+      "BP",
+      0.9,
+      "integrated oil and gas"
+    ],
+    [
+      "BP",
+      "COMPETES_WITH",
+      "TTE",
+      0.9,
+      "integrated oil and gas"
+    ],
+    [
+      "CVX",
+      "COMPETES_WITH",
+      "TTE",
+      0.7,
+      "integrated oil and gas"
+    ],
+    [
+      "COP",
+      "COMPETES_WITH",
+      "EOG",
+      0.7,
+      "US exploration and production"
+    ],
+    [
+      "EOG",
+      "COMPETES_WITH",
+      "DVN",
+      0.7,
+      "US exploration and production"
+    ],
+    [
+      "OXY",
+      "COMPETES_WITH",
+      "COP",
+      0.7,
+      "US exploration and production"
+    ],
+    [
+      "SLB",
+      "COMPETES_WITH",
+      "HAL",
+      0.9,
+      "oilfield services"
+    ],
+    [
+      "SLB",
+      "COMPETES_WITH",
+      "BKR",
+      0.8,
+      "oilfield services and equipment"
+    ],
+    [
+      "HAL",
+      "COMPETES_WITH",
+      "BKR",
+      0.7,
+      "oilfield services"
+    ],
+    [
+      "PSX",
+      "COMPETES_WITH",
+      "VLO",
+      0.9,
+      "refining"
+    ],
+    [
+      "VLO",
+      "COMPETES_WITH",
+      "MPC",
+      0.9,
+      "refining"
+    ],
+    [
+      "PSX",
+      "COMPETES_WITH",
+      "MPC",
+      0.9,
+      "refining"
+    ],
+    [
+      "KMI",
+      "COMPETES_WITH",
+      "WMB",
+      0.8,
+      "natural gas pipelines"
+    ],
+    [
+      "KMI",
+      "COMPETES_WITH",
+      "ET",
+      0.8,
+      "pipelines and midstream"
+    ],
+    [
+      "LNG",
+      "COMPETES_WITH",
+      "SHEL",
+      0.5,
+      "LNG supply and trading"
+    ]
+  ]
+}

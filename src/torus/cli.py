@@ -1,5 +1,6 @@
 """Command line interface: ``torus init | status | resolve | detect | serve | hook |
-watch | feed | config | graph | explore | doctor | export | import``."""
+watch | schedule | feed | alerts | onboard | audit | whatif | memo | scorecard | config |
+graph | explore | doctor | export | import``."""
 
 from __future__ import annotations
 
@@ -148,7 +149,34 @@ def _cmd_hook(args: argparse.Namespace) -> int:
     return 0  # hooks never fail the harness
 
 
-CONFIG_KEYS = {"sec_contact": "contact email sent to the SEC in the User-Agent"}
+CONFIG_KEYS = {
+    "sec_contact": "contact email sent to the SEC in the User-Agent",
+    "alert_threshold": "minimum alert score for theses without their own (default 0.2)",
+    "auto_distill": "off, ask (default: Claude offers /torus:distill) or on (background curator)",
+    "capture_receipts": "on (default) or off: tell the user what each turn recorded",
+    "filing_diffs": "on (default) or off: summarise risk-factor changes in 10-K/10-Q events",
+    "benchmark": "ticker theses are measured against on the scorecard (default SPY)",
+    "price_source": "yahoo (default) or none: where the scorecard gets daily closes",
+}
+
+
+def _check_config_value(key: str, value: str) -> str | None:
+    """An error message if ``value`` isn't valid for ``key``."""
+    if key == "sec_contact" and "@" not in value:
+        return "sec_contact must be an email address."
+    if key == "alert_threshold":
+        try:
+            if not 0.0 <= float(value) <= 10.0:
+                raise ValueError
+        except ValueError:
+            return "alert_threshold must be a number from 0 to 10."
+    if key == "auto_distill" and value not in ("off", "ask", "on"):
+        return "auto_distill must be off, ask or on."
+    if key in ("capture_receipts", "filing_diffs") and value not in ("on", "off"):
+        return f"{key} must be on or off."
+    if key == "price_source" and value not in ("yahoo", "none"):
+        return "price_source must be yahoo or none."
+    return None
 
 
 def _open_store(p: Paths) -> SQLiteBackend:
@@ -161,7 +189,11 @@ def _cmd_watch_run(args: argparse.Namespace) -> int:
     p = paths()
     with _open_store(p) as store:
         report = run_watchers(
-            store, reference=_reference(p), edgar=not args.no_edgar, rss=not args.no_rss
+            store,
+            reference=_reference(p),
+            edgar=not args.no_edgar,
+            rss=not args.no_rss,
+            home=p.home,
         )
     if args.json:
         print(json.dumps([asdict(s) for s in report.sources], indent=2))
@@ -218,6 +250,26 @@ def _cmd_watch_list(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_schedule(args: argparse.Namespace) -> int:
+    from torus.schedule import Scheduler
+
+    scheduler = Scheduler(paths().ensure().home)
+    if args.schedule_command == "install":
+        try:
+            what = scheduler.install(args.every)
+        except (RuntimeError, ValueError) as exc:
+            print(f"Couldn't install the schedule: {exc}", file=sys.stderr)
+            return 1
+        print(f"Installed: {what}. Output goes to {scheduler.log}.")
+    elif args.schedule_command == "remove":
+        print("Removed." if scheduler.remove() else "No Torus schedule was installed.")
+    else:
+        status = scheduler.status()
+        print(status or "Not scheduled. Install with `torus schedule install`.")
+        return 0 if status else 1
+    return 0
+
+
 def _cmd_feed_add(args: argparse.Namespace) -> int:
     with _open_store(paths()) as store:
         feed = store.add_feed(args.url, args.name)
@@ -235,14 +287,366 @@ def _cmd_feed_remove(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_alerts_list(args: argparse.Namespace) -> int:
+    from torus.core.models import AlertStatus
+
+    statuses = list(AlertStatus) if args.all else [AlertStatus.OPEN]
+    with _open_store(paths()) as store:
+        alerts = store.alerts(statuses=statuses)
+        if not alerts:
+            print("No open alerts." if not args.all else "No alerts.")
+            return 0
+        for alert in alerts:
+            event = store.get_event(alert.event_id)
+            thesis = store.get_thesis(alert.thesis_id)
+            verdict = alert.verdict.value if alert.verdict else alert.status.value
+            print(f"{alert.score:5.2f}  [{verdict}] {event.title}")
+            print(f"       -> {thesis.title} (thesis {thesis.id}, alert {alert.id})")
+            if alert.graph_score is not None:
+                print(
+                    f"       graph {alert.graph_score:.2f} x materiality {alert.materiality:.2f}"
+                    f" ({event.materiality_reason or 'n/a'})"
+                    f" x (1 + trigger {alert.trigger_match or 0:.2f})"
+                )
+    return 0
+
+
+def _cmd_alerts_stats(args: argparse.Namespace) -> int:
+    from datetime import UTC, datetime, timedelta
+
+    from torus.core.alert_stats import alert_stats
+
+    since = datetime.now(UTC) - timedelta(days=args.days) if args.days else None
+    with _open_store(paths()) as store:
+        stats = alert_stats(store, since)
+    if args.json:
+        print(stats.model_dump_json(indent=2))
+        return 0
+    window = f"last {args.days} days" if args.days else "all time"
+    precision = f"{stats.precision:.0%}" if stats.precision is not None else "n/a"
+    print(
+        f"Alerts ({window}): {stats.alerts} raised, {stats.open} open, {stats.judged} judged."
+        f" Precision {precision} ({stats.unrelated} judged unrelated)."
+    )
+    for title, buckets in (
+        ("source", stats.by_source),
+        ("form", stats.by_form),
+        ("hops", stats.by_hops),
+        ("materiality", stats.by_materiality),
+    ):
+        print(f"\nBy {title}:")
+        for b in buckets:
+            p = f"{b.precision:.0%}" if b.precision is not None else "  - "
+            print(f"  {b.label:<20} {b.alerts:>4} alerts  {b.judged:>4} judged  precision {p}")
+    return 0
+
+
+def _cmd_alerts_threshold(args: argparse.Namespace) -> int:
+    value = None if args.value == "default" else args.value
+    if value is not None:
+        problem = _check_config_value("alert_threshold", value)
+        if problem:
+            print(problem, file=sys.stderr)
+            return 2
+    with _open_store(paths()) as store:
+        if args.thesis:
+            thesis = store.set_alert_threshold(args.thesis, float(value) if value else None)
+            shown = thesis.alert_threshold if thesis.alert_threshold is not None else "global"
+            print(f"Alert threshold for {thesis.title}: {shown}")
+        else:
+            store.set_setting("alert_threshold", value)
+            print(f"Global alert threshold: {value or 'default (0.2)'}")
+    return 0
+
+
+def _cmd_alerts_mute(args: argparse.Namespace) -> int:
+    from datetime import UTC, datetime
+
+    from torus.core.models import EventKind
+
+    p = paths()
+    with _open_store(p) as store:
+        entity_id = None
+        if args.entity:
+            entity_id = _resolve_or_fail(store, p, args.entity)
+            if entity_id is None:
+                return 1
+        until = datetime.fromisoformat(args.until).replace(tzinfo=UTC) if args.until else None
+        try:
+            mute = store.add_thesis_mute(
+                args.thesis,
+                entity_id=entity_id,
+                event_kind=EventKind(args.kind) if args.kind else None,
+                form=args.form,
+                until=until,
+                note=args.note,
+            )
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+    print(f"Muted (mute {mute.id}).")
+    return 0
+
+
+def _cmd_alerts_unmute(args: argparse.Namespace) -> int:
+    with _open_store(paths()) as store:
+        if not store.remove_thesis_mute(args.mute_id):
+            print(f"No active mute {args.mute_id}.", file=sys.stderr)
+            return 1
+    print(f"Removed mute {args.mute_id}.")
+    return 0
+
+
+def _cmd_alerts_mutes(args: argparse.Namespace) -> int:
+    with _open_store(paths()) as store:
+        mutes = store.thesis_mutes(args.thesis)
+        names = {eid: name for eid, (_, name) in store.entity_index().items()}
+        for m in mutes:
+            parts = [
+                f"entity={names.get(m.entity_id, m.entity_id)}" if m.entity_id else "",
+                f"kind={m.event_kind.value}" if m.event_kind else "",
+                f"form={m.form}" if m.form else "",
+                f"until={m.until:%Y-%m-%d}" if m.until else "",
+            ]
+            title = store.get_thesis(m.thesis_id).title
+            print(f"{m.id}  {title}: {' '.join(x for x in parts if x)}")
+    if not mutes:
+        print("No mutes.")
+    return 0
+
+
+def _cmd_onboard(args: argparse.Namespace) -> int:
+    from torus.core.onboard import onboard, read_tickers
+    from torus.core.starter import available_packs
+
+    refs = list(args.tickers)
+    if args.file:
+        refs += read_tickers(Path(args.file).read_text(encoding="utf-8-sig"))
+    if not refs:
+        print("Give tickers, or --file with a CSV of tickers.", file=sys.stderr)
+        return 2
+    p = paths()
+    reference = _reference(p)
+    with _open_store(p) as store:
+        report = onboard(store, refs, reference, watch=not args.no_watch, map_companies=True)
+    for c in report.companies:
+        state = "new" if c.created else "known"
+        job = ", queued for mapping" if c.queued else ""
+        print(f"  {c.ref:<8} {c.name} ({state}{job})")
+    for ref, why in report.unresolved:
+        print(f"  {ref:<8} not added: {why}", file=sys.stderr)
+    print(
+        f"Onboarded {len(report.companies)} companies"
+        + ("" if args.no_watch else ", watching their filings")
+        + f"; {report.queued} mapping job(s) queued."
+    )
+    packs = available_packs()
+    for name, covered in report.packs:
+        print(
+            f"  Suggested pack: {name} ({packs[name]['title']}), covers {covered}."
+            f" Add it with `torus graph seed {name}`."
+        )
+    if report.queued:
+        print(
+            "Run /torus:onboard in Claude Code to map their suppliers, customers and"
+            " competitors from their annual reports."
+        )
+    if not len(reference):
+        print(
+            "Note: no SEC reference data; run `torus init --refresh-reference --contact EMAIL`"
+            " so tickers resolve to SEC companies.",
+            file=sys.stderr,
+        )
+    return 1 if report.unresolved and not report.companies else 0
+
+
+def _cmd_audit(args: argparse.Namespace) -> int:
+    from datetime import UTC, datetime
+
+    from torus.core.audit import audit
+
+    with _open_store(paths()) as store:
+        report = audit(store, datetime.now(UTC), stale_days=args.stale_days)
+    if args.json:
+        print(report.model_dump_json(indent=2))
+        return 0
+    if not report.findings:
+        print("No findings: the graph looks healthy.")
+        return 0
+    for f in report.findings:
+        print(f"[{f.severity.value:<6}] {f.title}")
+        print(f"         {f.detail[:160]}")
+        print(f"         -> {f.suggestion} ({f.object_type} {', '.join(f.object_ids)})")
+    s = report.by_severity
+    print(
+        f"\n{len(report.findings)} finding(s): {s.get('high', 0)} high, {s.get('medium', 0)}"
+        f" medium, {s.get('low', 0)} low. Fix them with /torus:audit in Claude Code."
+    )
+    return 0
+
+
+def _cmd_whatif(args: argparse.Namespace) -> int:
+    from datetime import UTC, datetime
+
+    from torus.core.whatif import what_if
+
+    p = paths()
+    with _open_store(p) as store:
+        ids = []
+        for ref in args.entities:
+            entity_id = _resolve_or_fail(store, p, ref)
+            if entity_id is None:
+                return 1
+            ids.append(entity_id)
+        result = what_if(store, ids, args.description, datetime.now(UTC), args.materiality)
+    if args.json:
+        print(result.model_dump_json(indent=2))
+        return 0
+    print(
+        f"Materiality {result.materiality:.2f} ({result.materiality_reason}),"
+        f" alert threshold {result.threshold:.2f}"
+    )
+    if not result.hits:
+        print("No open thesis would be reached.")
+    for h in result.hits:
+        mark = "ALERT" if h.would_alert else "below"
+        print(
+            f"{h.hit.score:5.2f} {mark}  {h.hit.thesis_title} ({h.stance.value}, {h.status.value})"
+        )
+        for path in h.hit.paths:
+            print(f"        {path.route} via {path.via}")
+        if h.hit.matched_trigger:
+            print(f"        matches trigger: {h.hit.matched_trigger}")
+    return 0
+
+
+def _cmd_memo(args: argparse.Namespace) -> int:
+    import webbrowser
+    from datetime import UTC, datetime
+
+    from torus.core.errors import NotFoundError
+    from torus.core.memo import build_memo, save_memo
+
+    p = paths()
+    with _open_store(p) as store:
+        try:
+            memo = build_memo(store, args.thesis, datetime.now(UTC))
+        except NotFoundError:
+            print(f"No thesis {args.thesis}.", file=sys.stderr)
+            return 1
+    out_dir = Path(args.out) if args.out else p.home / "memos"
+    markdown, page = save_memo(memo, out_dir)
+    print(f"Wrote {markdown}\nWrote {page}")
+    if args.open:
+        webbrowser.open(page.resolve().as_uri())
+    return 0
+
+
+def _pct(value: float | None) -> str:
+    return f"{value:+.1%}" if value is not None else "   n/a"
+
+
+def _cmd_scorecard(args: argparse.Namespace) -> int:
+    from datetime import UTC, datetime
+
+    from torus.core.scorecard import refresh_prices, scorecard, tracked
+    from torus.sources.prices import YahooSource
+    from torus.watchers.http import UrllibFetcher
+
+    now = datetime.now(UTC)
+    with _open_store(paths()) as store:
+        if args.refresh and tracked(store):
+            result = refresh_prices(store, YahooSource(UrllibFetcher()), now.date())
+            for symbol, rows in result.items():
+                if isinstance(rows, str):
+                    print(f"  {symbol}: {rows}", file=sys.stderr)
+        card = scorecard(store, now)
+    if args.json:
+        print(card.model_dump_json(indent=2))
+        return 0
+    if not card.theses:
+        print("No theses tracked. Track one with `torus scorecard track THESIS_ID [TICKER]`.")
+    for s in card.theses:
+        outcome = f" [{s.outcome.value}]" if s.outcome else ""
+        print(f"{s.symbol:<6} {s.stance.value:<8} {_pct(s.stance_return)}  {s.title}{outcome}")
+        print(
+            f"       return {_pct(s.asset_return)} vs {s.benchmark} {_pct(s.benchmark_return)},"
+            f" drawdown {_pct(s.max_drawdown)}" + (f"  ({s.missing})" if s.missing else "")
+        )
+    c = card.calibration
+    if c.decided:
+        print(
+            f"\nCalibration: {c.right}/{c.decided} right, Brier {c.brier:.3f}"
+            " (0 is perfect, 0.25 is a coin flip)"
+        )
+        for band in c.bands:
+            if band.theses:
+                print(
+                    f"  confidence {band.label:<9} {band.theses:>3} theses,"
+                    f" right {band.hit_rate:.0%} (mean confidence {band.mean_confidence:.0%})"
+                )
+    else:
+        print("\nCalibration: no decided theses yet.")
+    return 0
+
+
+def _cmd_scorecard_track(args: argparse.Namespace) -> int:
+    from datetime import UTC, datetime
+
+    with _open_store(paths()) as store:
+        thesis = store.get_thesis(args.thesis)
+        symbol = args.ticker
+        if symbol is None and thesis.subject_entity_id:
+            subject = store.get_entity(thesis.subject_entity_id)
+            symbol = next(
+                (a.alias for a in subject.aliases if a.alias_type.value == "ticker"), None
+            )
+        if not symbol:
+            print("Give a ticker: the thesis's subject has none.", file=sys.stderr)
+            return 2
+        entry_at = (
+            datetime.fromisoformat(args.entry_date).replace(tzinfo=UTC) if args.entry_date else None
+        )
+        thesis = store.set_thesis_tracking(
+            thesis.id, symbol, args.entry_price, entry_at, args.benchmark
+        )
+    print(f"Tracking {thesis.title} as {thesis.instrument}. Run `torus scorecard --refresh`.")
+    return 0
+
+
+def _cmd_scorecard_outcome(args: argparse.Namespace) -> int:
+    with _open_store(paths()) as store:
+        if args.outcome == "clear":
+            store.clear_thesis_outcome(args.thesis)
+            print("Outcome cleared.")
+        else:
+            store.set_thesis_outcome(args.thesis, args.outcome, "user", note=args.note)
+            print(f"Outcome set: {args.outcome}.")
+    return 0
+
+
+def _cmd_scorecard_import(args: argparse.Namespace) -> int:
+    from torus.sources.prices import read_price_csv
+
+    rows = read_price_csv(Path(args.file).read_text(encoding="utf-8-sig"))
+    if not rows:
+        print("No date,close rows found.", file=sys.stderr)
+        return 1
+    with _open_store(paths()) as store:
+        store.upsert_prices(args.symbol, rows, "csv")
+    print(f"Imported {len(rows)} closes for {args.symbol.upper()} ({rows[0][0]} to {rows[-1][0]}).")
+    return 0
+
+
 def _cmd_config(args: argparse.Namespace) -> int:
     if args.key not in CONFIG_KEYS:
         print(f"Unknown key {args.key!r}. Known: {', '.join(CONFIG_KEYS)}", file=sys.stderr)
         return 2
     with _open_store(paths()) as store:
         if args.action == "set":
-            if args.key == "sec_contact" and args.value and "@" not in args.value:
-                print("sec_contact must be an email address.", file=sys.stderr)
+            problem = _check_config_value(args.key, args.value) if args.value else None
+            if problem:
+                print(problem, file=sys.stderr)
                 return 2
             store.set_setting(args.key, args.value or None)
         value = store.get_setting(args.key)
@@ -464,6 +868,16 @@ def build_parser() -> argparse.ArgumentParser:
     watch_list = watch_sub.add_parser("list", help="what is watched, and why")
     watch_list.set_defaults(func=_cmd_watch_list)
 
+    schedule = sub.add_parser("schedule", help="run the watchers on a schedule")
+    schedule_sub = schedule.add_subparsers(dest="schedule_command", required=True)
+    sched_install = schedule_sub.add_parser(
+        "install", help="run `torus watch run` regularly (schtasks, launchd or cron)"
+    )
+    sched_install.add_argument("--every", type=int, default=1, help="hours between runs")
+    sched_install.set_defaults(func=_cmd_schedule)
+    schedule_sub.add_parser("remove", help="remove the schedule").set_defaults(func=_cmd_schedule)
+    schedule_sub.add_parser("status", help="show the schedule").set_defaults(func=_cmd_schedule)
+
     feed = sub.add_parser("feed", help="manage RSS/Atom feeds")
     feed_sub = feed.add_subparsers(dest="feed_command", required=True)
     feed_add = feed_sub.add_parser("add")
@@ -473,6 +887,84 @@ def build_parser() -> argparse.ArgumentParser:
     feed_remove = feed_sub.add_parser("remove")
     feed_remove.add_argument("url")
     feed_remove.set_defaults(func=_cmd_feed_remove)
+
+    alerts = sub.add_parser("alerts", help="alerts raised by events on theses")
+    alerts_sub = alerts.add_subparsers(dest="alerts_command", required=True)
+    al_list = alerts_sub.add_parser("list", help="open alerts and how they scored")
+    al_list.add_argument("--all", action="store_true", help="include judged alerts")
+    al_list.set_defaults(func=_cmd_alerts_list)
+    al_stats = alerts_sub.add_parser("stats", help="how often alerts were judged related")
+    al_stats.add_argument("--days", type=int, help="only alerts from the last N days")
+    al_stats.add_argument("--json", action="store_true", help="machine-readable output")
+    al_stats.set_defaults(func=_cmd_alerts_stats)
+    al_thr = alerts_sub.add_parser("threshold", help="minimum alert score (global or per thesis)")
+    al_thr.add_argument("value", help="a number from 0 to 10, or 'default'")
+    al_thr.add_argument("--thesis", help="set it for this thesis id only")
+    al_thr.set_defaults(func=_cmd_alerts_threshold)
+    al_mute = alerts_sub.add_parser("mute", help="stop alerts on a thesis from matching events")
+    al_mute.add_argument("thesis", help="thesis id")
+    al_mute.add_argument("--entity", help="only events about this company")
+    al_mute.add_argument(
+        "--kind", choices=["filing", "news", "earnings", "price_move", "macro", "manual"]
+    )
+    al_mute.add_argument("--form", help="only this SEC form, e.g. 10-Q")
+    al_mute.add_argument("--until", help="date (YYYY-MM-DD) the mute ends")
+    al_mute.add_argument("--note")
+    al_mute.set_defaults(func=_cmd_alerts_mute)
+    al_unmute = alerts_sub.add_parser("unmute", help="remove a mute")
+    al_unmute.add_argument("mute_id")
+    al_unmute.set_defaults(func=_cmd_alerts_unmute)
+    al_mutes = alerts_sub.add_parser("mutes", help="list mutes")
+    al_mutes.add_argument("thesis", nargs="?", help="only this thesis")
+    al_mutes.set_defaults(func=_cmd_alerts_mutes)
+
+    onboard_p = sub.add_parser(
+        "onboard", help="start covering companies (tickers or a portfolio CSV)"
+    )
+    onboard_p.add_argument("tickers", nargs="*", help="tickers or company names")
+    onboard_p.add_argument("--file", help="CSV with a ticker or symbol column")
+    onboard_p.add_argument("--no-watch", action="store_true", help="don't watch their filings")
+    onboard_p.set_defaults(func=_cmd_onboard)
+
+    audit_p = sub.add_parser("audit", help="find stale, thin or conflicting research")
+    audit_p.add_argument("--stale-days", type=int, default=90, help="days unchanged = stale")
+    audit_p.add_argument("--json", action="store_true", help="machine-readable output")
+    audit_p.set_defaults(func=_cmd_audit)
+
+    whatif = sub.add_parser("whatif", help="which theses would a hypothetical event reach?")
+    whatif.add_argument("description", help="e.g. 'TSMC fab outage halts CoWoS for 3 months'")
+    whatif.add_argument("entities", nargs="+", help="companies the event is about")
+    whatif.add_argument("--materiality", type=float, help="0-1 (default: from the wording)")
+    whatif.add_argument("--json", action="store_true", help="machine-readable output")
+    whatif.set_defaults(func=_cmd_whatif)
+
+    memo = sub.add_parser("memo", help="write a thesis up as a sourced memo (Markdown + HTML)")
+    memo.add_argument("thesis", help="thesis id")
+    memo.add_argument("--out", help="directory (default TORUS_HOME/memos)")
+    memo.add_argument("--open", action="store_true", help="open the HTML in a browser")
+    memo.set_defaults(func=_cmd_memo)
+
+    card = sub.add_parser("scorecard", help="how tracked theses did, and calibration")
+    card.add_argument("--refresh", action="store_true", help="fetch the latest prices first")
+    card.add_argument("--json", action="store_true", help="machine-readable output")
+    card.set_defaults(func=_cmd_scorecard)
+    card_sub = card.add_subparsers(dest="scorecard_command")
+    track = card_sub.add_parser("track", help="track a thesis against a ticker")
+    track.add_argument("thesis", help="thesis id")
+    track.add_argument("ticker", nargs="?", help="default: the subject's ticker")
+    track.add_argument("--entry-price", type=float)
+    track.add_argument("--entry-date", help="YYYY-MM-DD (default: when it was recorded)")
+    track.add_argument("--benchmark", help="default: SPY")
+    track.set_defaults(func=_cmd_scorecard_track)
+    outcome = card_sub.add_parser("outcome", help="set whether a thesis was right")
+    outcome.add_argument("thesis", help="thesis id")
+    outcome.add_argument("outcome", choices=["right", "wrong", "unclear", "clear"])
+    outcome.add_argument("--note")
+    outcome.set_defaults(func=_cmd_scorecard_outcome)
+    imp_prices = card_sub.add_parser("import", help="import daily closes from a CSV")
+    imp_prices.add_argument("symbol")
+    imp_prices.add_argument("file", help="CSV with date and close columns")
+    imp_prices.set_defaults(func=_cmd_scorecard_import)
 
     config = sub.add_parser("config", help="get or set a Torus setting")
     config.add_argument("action", choices=["get", "set"])

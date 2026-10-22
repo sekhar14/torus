@@ -94,6 +94,14 @@ svg.panning { cursor: grabbing; }
   box-shadow: var(--shadow); display: none; max-width: 320px; }
 #empty { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
   color: var(--muted); text-align: center; padding: 24px; }
+#timebar { position: fixed; z-index: 2; left: 50%; transform: translateX(-50%); bottom: 12px;
+  display: none; align-items: center; gap: 10px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 10px; padding: 6px 12px; box-shadow: var(--shadow); font-size: 12px;
+  width: min(560px, calc(100vw - 24px)); }
+#timebar.on { display: flex; }
+#timebar input { flex: 1; min-width: 80px; accent-color: var(--entity); }
+#time-label { color: var(--muted); min-width: 76px; text-align: left; font-variant-numeric: tabular-nums; }
+.past-note { color: var(--at_risk); }
 @media (max-width: 640px) {
   #legend { display: none; }
   #panel { top: auto; height: 55vh; left: 12px; width: auto; }
@@ -127,6 +135,12 @@ svg.panning { cursor: grabbing; }
   <div><svg><line x1="0" y1="6" x2="28" y2="6" stroke="var(--supplies)" stroke-width="2"></line></svg>supplies</div>
   <div><svg><line x1="0" y1="6" x2="28" y2="6" stroke="var(--competes)" stroke-width="2" stroke-dasharray="5 4"></line></svg>competes with</div>
   <div><svg><line x1="0" y1="6" x2="28" y2="6" stroke="var(--alert)" stroke-width="3"></line></svg>alert on a thesis</div>
+</div>
+<div id="timebar" role="group" aria-label="Replay the research over time">
+  <button id="play" type="button" aria-label="Replay from the start">&#9654; Replay</button>
+  <input id="time" type="range" aria-label="Show the graph as of this date">
+  <span id="time-label"></span>
+  <button id="now" type="button">Now</button>
 </div>
 <div id="tip"></div>
 <div id="empty">The graph is empty.<br>Research a company in Claude Code, or run <code>torus graph seed semis</code>, then <code>torus explore</code> again.</div>
@@ -353,21 +367,87 @@ svg.panning { cursor: grabbing; }
   for (let i = 0; i < 300 && alpha > 0.05; i++) tick();
   draw(); fit(); kick(alpha);
 
+  // ---- time: what existed, and each thesis's status, as of a date -------------------
+  const TL = DATA.timeline || null;
+  const ms = (s) => Date.parse(s);
+  const DAY = 86400000;
+  let cutoff = Infinity;   // Infinity: now (everything)
+  const bornAt = (map, id) => (TL && map[id] ? ms(map[id]) : -Infinity);
+  const STATUSES = ["active", "at_risk", "broken", "confirmed", "archived"];
+  function statusAt(n) {
+    if (!TL || cutoff === Infinity || !TL.status[n.id]) return n.data.status;
+    let s = null;
+    for (const [at, st] of TL.status[n.id]) { if (ms(at) <= cutoff) s = st; }
+    return s || n.data.status;
+  }
+
   // ---- filters ------------------------------------------------------------
-  function applyFilters() {
+  function applyFilters(relayout = true) {
     const showTheses = $("f-theses").checked, showEvents = $("f-events").checked;
     const showCompetes = $("f-competes").checked, showStarter = $("f-starter").checked;
     nodes.forEach((n) => {
-      n.hidden = (n.kind === "thesis" && !showTheses) || (n.kind === "event" && !showEvents);
+      n.hidden = (n.kind === "thesis" && !showTheses) || (n.kind === "event" && !showEvents)
+        || bornAt(TL ? TL.nodes : {}, n.id) > cutoff;
+      if (n.kind === "thesis") {
+        STATUSES.forEach((s) => n.el.classList.remove(s));
+        n.el.classList.add(statusAt(n));
+      }
     });
     edges.forEach((e) => {
       e.hidden = e.s.hidden || e.t.hidden
         || (e.kind === "COMPETES_WITH" && !showCompetes)
-        || ((e.provenance || "").startsWith("starter:") && !showStarter);
+        || ((e.provenance || "").startsWith("starter:") && !showStarter)
+        || bornAt(TL ? TL.edges : {}, e.id) > cutoff;
     });
-    draw(); kick(0.3);
+    draw();
+    if (relayout) kick(0.3);
   }
-  ["f-theses", "f-events", "f-competes", "f-starter"].forEach((id) => $(id).addEventListener("change", applyFilters));
+  ["f-theses", "f-events", "f-competes", "f-starter"].forEach((id) => $(id).addEventListener("change", () => applyFilters()));
+
+  // ---- time slider ------------------------------------------------------------
+  const slider = $("time"), timeLabel = $("time-label");
+  let playing = null;
+  if (TL && nodes.length) {
+    const start = Math.floor(ms(TL.start) / DAY) * DAY;
+    // The range ends on a whole number of days so "now" sits at the far right.
+    const end = start + Math.ceil((ms(TL.end) - start) / DAY) * DAY;
+    if (end - start >= DAY) {
+      $("timebar").classList.add("on");
+      slider.min = String(start); slider.max = String(end); slider.step = String(DAY);
+      slider.value = String(end);
+      const label = () => {
+        timeLabel.textContent = cutoff === Infinity ? "now" : new Date(cutoff).toISOString().slice(0, 10);
+        timeLabel.classList.toggle("past-note", cutoff !== Infinity);
+      };
+      const setTime = (value) => {
+        cutoff = value >= end ? Infinity : value;
+        slider.value = String(Math.min(value, end));
+        label(); applyFilters(false);
+      };
+      slider.addEventListener("input", () => { stop(); setTime(Number(slider.value)); });
+      $("now").addEventListener("click", () => { stop(); setTime(end); });
+      const stop = () => { if (playing) { clearInterval(playing); playing = null; $("play").textContent = "▶ Replay"; } };
+      $("play").addEventListener("click", () => {
+        if (playing) { stop(); return; }
+        let t = start;
+        const stepMs = Math.max(DAY, (end - start) / 80);   // about 8 seconds end to end
+        $("play").textContent = "❚❚ Pause";
+        setTime(t);
+        playing = setInterval(() => {
+          t += stepMs;
+          setTime(t);
+          if (t >= end) stop();
+        }, 100);
+      });
+      label();
+      // explorer.html#at=2026-06-30 opens the graph as it stood that day.
+      const at = (location.hash.match(/(?:^#|&)at=(\d{4}-\d{2}-\d{2})/) || [])[1];
+      if (at && !Number.isNaN(ms(at + "T23:59:59Z"))) {
+        setTime(Math.max(start, ms(at + "T23:59:59Z")));
+        fit();
+      }
+    }
+  }
 
   // ---- selection & details panel ------------------------------------------------
   let selected = null;
@@ -467,6 +547,12 @@ svg.panning { cursor: grabbing; }
         li.append(h("span", a.status === "open" ? "open" : (a.verdict || a.status), `pill ${a.status}`),
           link(a.uri, a.event));
         li.appendChild(h("div", `${day(a.occurred_at)} · score ${a.score.toFixed(2)}`, "sub"));
+        if (a.graph_score !== null && a.graph_score !== undefined) {
+          const why = a.materiality_reason ? ` (${a.materiality_reason})` : "";
+          li.appendChild(h("div", `= graph ${a.graph_score.toFixed(2)} × materiality `
+            + `${a.materiality.toFixed(2)}${why} × (1 + trigger match ${(a.trigger_match || 0).toFixed(2)})`, "sub"));
+        }
+        if (a.matched_trigger) li.appendChild(h("div", "matches trigger: " + a.matched_trigger, "sub"));
         (a.paths || []).forEach((p) => li.appendChild(h("div", "why: " + p, "sub")));
         return li;
       });
@@ -527,7 +613,7 @@ svg.panning { cursor: grabbing; }
   function hideTip() { tipEl.style.display = "none"; }
 
   // A link like explorer.html#select=NVIDIA opens with that node selected.
-  const deepLink = decodeURIComponent((location.hash.match(/^#select=(.+)$/) || [])[1] || "");
+  const deepLink = decodeURIComponent((location.hash.match(/^#select=([^&]+)/) || [])[1] || "");
   if (deepLink) {
     const hit = findNode(deepLink);
     if (hit) select(hit);

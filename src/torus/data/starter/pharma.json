@@ -1,0 +1,354 @@
+{
+  "name": "pharma",
+  "version": 1,
+  "title": "Pharma, biotech and the drug supply chain",
+  "description": "Large drugmakers and biotechs, their main competitive matchups (GLP-1s, PD-1s, immunology, vaccines, HIV), lab and manufacturing suppliers, drug wholesalers and pharmacy benefit managers. A starting point to verify and extend, not a source of truth.",
+  "entities": [
+    {
+      "ref": "LLY",
+      "ticker": "LLY",
+      "name": "Eli Lilly & Co",
+      "aliases": [
+        "Eli Lilly",
+        "Lilly"
+      ]
+    },
+    {
+      "ref": "NVO",
+      "ticker": "NVO",
+      "name": "Novo Nordisk A/S",
+      "aliases": [
+        "Novo Nordisk",
+        "Novo"
+      ]
+    },
+    {
+      "ref": "PFE",
+      "ticker": "PFE",
+      "name": "Pfizer Inc",
+      "aliases": [
+        "Pfizer"
+      ]
+    },
+    {
+      "ref": "MRK",
+      "ticker": "MRK",
+      "name": "Merck & Co Inc",
+      "aliases": [
+        "Merck"
+      ]
+    },
+    {
+      "ref": "ABBV",
+      "ticker": "ABBV",
+      "name": "AbbVie Inc",
+      "aliases": [
+        "AbbVie"
+      ]
+    },
+    {
+      "ref": "JNJ",
+      "ticker": "JNJ",
+      "name": "Johnson & Johnson",
+      "aliases": [
+        "J&J"
+      ]
+    },
+    {
+      "ref": "BMY",
+      "ticker": "BMY",
+      "name": "Bristol-Myers Squibb Co",
+      "aliases": [
+        "Bristol Myers Squibb",
+        "BMS"
+      ]
+    },
+    {
+      "ref": "AMGN",
+      "ticker": "AMGN",
+      "name": "Amgen Inc",
+      "aliases": [
+        "Amgen"
+      ]
+    },
+    {
+      "ref": "GILD",
+      "ticker": "GILD",
+      "name": "Gilead Sciences Inc",
+      "aliases": [
+        "Gilead"
+      ]
+    },
+    {
+      "ref": "AZN",
+      "ticker": "AZN",
+      "name": "AstraZeneca PLC",
+      "aliases": [
+        "AstraZeneca"
+      ]
+    },
+    {
+      "ref": "GSK",
+      "ticker": "GSK",
+      "name": "GSK PLC",
+      "aliases": [
+        "GSK",
+        "GlaxoSmithKline"
+      ]
+    },
+    {
+      "ref": "MRNA",
+      "ticker": "MRNA",
+      "name": "Moderna Inc",
+      "aliases": [
+        "Moderna"
+      ]
+    },
+    {
+      "ref": "TMO",
+      "ticker": "TMO",
+      "name": "Thermo Fisher Scientific Inc",
+      "aliases": [
+        "Thermo Fisher"
+      ]
+    },
+    {
+      "ref": "DHR",
+      "ticker": "DHR",
+      "name": "Danaher Corp",
+      "aliases": [
+        "Danaher"
+      ]
+    },
+    {
+      "ref": "MCK",
+      "ticker": "MCK",
+      "name": "McKesson Corp",
+      "aliases": [
+        "McKesson"
+      ]
+    },
+    {
+      "ref": "COR",
+      "ticker": "COR",
+      "name": "Cencora Inc",
+      "aliases": [
+        "Cencora",
+        "AmerisourceBergen"
+      ]
+    },
+    {
+      "ref": "CAH",
+      "ticker": "CAH",
+      "name": "Cardinal Health Inc",
+      "aliases": [
+        "Cardinal Health"
+      ]
+    },
+    {
+      "ref": "CVS",
+      "ticker": "CVS",
+      "name": "CVS Health Corp",
+      "aliases": [
+        "CVS",
+        "Caremark"
+      ]
+    },
+    {
+      "ref": "CI",
+      "ticker": "CI",
+      "name": "Cigna Group",
+      "aliases": [
+        "Cigna",
+        "Express Scripts",
+        "Evernorth"
+      ]
+    },
+    {
+      "ref": "UNH",
+      "ticker": "UNH",
+      "name": "UnitedHealth Group Inc",
+      "aliases": [
+        "UnitedHealth",
+        "Optum"
+      ]
+    }
+  ],
+  "relations": [
+    [
+      "LLY",
+      "SUPPLIES",
+      "MCK",
+      0.6,
+      "branded drugs distributed by the large wholesalers"
+    ],
+    [
+      "LLY",
+      "SUPPLIES",
+      "COR",
+      0.6,
+      "branded drugs distributed by the large wholesalers"
+    ],
+    [
+      "LLY",
+      "SUPPLIES",
+      "CAH",
+      0.6,
+      "branded drugs distributed by the large wholesalers"
+    ],
+    [
+      "ABBV",
+      "SUPPLIES",
+      "MCK",
+      0.6,
+      "branded drugs distributed by the large wholesalers"
+    ],
+    [
+      "ABBV",
+      "SUPPLIES",
+      "COR",
+      0.6,
+      "branded drugs distributed by the large wholesalers"
+    ],
+    [
+      "ABBV",
+      "SUPPLIES",
+      "CAH",
+      0.6,
+      "branded drugs distributed by the large wholesalers"
+    ],
+    [
+      "MCK",
+      "SUPPLIES",
+      "CVS",
+      0.8,
+      "McKesson is a primary distributor to CVS"
+    ],
+    [
+      "COR",
+      "SUPPLIES",
+      "CI",
+      0.7,
+      "Cencora supplies Express Scripts"
+    ],
+    [
+      "TMO",
+      "SUPPLIES",
+      "PFE",
+      0.6,
+      "lab tools and contract manufacturing"
+    ],
+    [
+      "LLY",
+      "COMPETES_WITH",
+      "NVO",
+      0.95,
+      "GLP-1 obesity and diabetes drugs"
+    ],
+    [
+      "AMGN",
+      "COMPETES_WITH",
+      "LLY",
+      0.5,
+      "obesity drugs in development"
+    ],
+    [
+      "MRK",
+      "COMPETES_WITH",
+      "BMY",
+      0.8,
+      "PD-1 cancer immunotherapy (Keytruda vs Opdivo)"
+    ],
+    [
+      "MRK",
+      "COMPETES_WITH",
+      "AZN",
+      0.7,
+      "oncology"
+    ],
+    [
+      "ABBV",
+      "COMPETES_WITH",
+      "JNJ",
+      0.8,
+      "immunology (Skyrizi vs Stelara and Tremfya)"
+    ],
+    [
+      "GILD",
+      "COMPETES_WITH",
+      "GSK",
+      0.8,
+      "HIV treatment (Gilead vs ViiV)"
+    ],
+    [
+      "PFE",
+      "COMPETES_WITH",
+      "MRNA",
+      0.8,
+      "COVID-19 vaccines"
+    ],
+    [
+      "PFE",
+      "COMPETES_WITH",
+      "GSK",
+      0.7,
+      "RSV vaccines"
+    ],
+    [
+      "MRK",
+      "COMPETES_WITH",
+      "GSK",
+      0.6,
+      "vaccines"
+    ],
+    [
+      "TMO",
+      "COMPETES_WITH",
+      "DHR",
+      0.8,
+      "life-science tools and bioprocessing"
+    ],
+    [
+      "MCK",
+      "COMPETES_WITH",
+      "COR",
+      0.9,
+      "drug wholesaling"
+    ],
+    [
+      "COR",
+      "COMPETES_WITH",
+      "CAH",
+      0.9,
+      "drug wholesaling"
+    ],
+    [
+      "MCK",
+      "COMPETES_WITH",
+      "CAH",
+      0.9,
+      "drug wholesaling"
+    ],
+    [
+      "CVS",
+      "COMPETES_WITH",
+      "CI",
+      0.8,
+      "pharmacy benefit management (Caremark vs Express Scripts)"
+    ],
+    [
+      "CVS",
+      "COMPETES_WITH",
+      "UNH",
+      0.8,
+      "pharmacy benefit management and insurance"
+    ],
+    [
+      "CI",
+      "COMPETES_WITH",
+      "UNH",
+      0.8,
+      "pharmacy benefit management and insurance"
+    ]
+  ]
+}

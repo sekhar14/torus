@@ -1,5 +1,61 @@
 # Changelog
 
+## 0.2.0
+
+Alerts that matter, onboarding in minutes, and ways to check, stress-test and score the research.
+
+**Alert precision**
+- Alerts score `graph score x materiality x (1 + trigger match)`. Materiality weighs SEC forms and
+  8-K items (a routine 10-Q is 0.4, a bankruptcy 1.0) and news wording; trigger matching compares
+  the event's text with each thesis's triggers. Each alert records how its score was built.
+- Per-thesis alert thresholds and mutes (by company, event kind, SEC form, until a date), a global
+  `alert_threshold` setting, alerts grouped by thesis for review, and `torus alerts stats`
+  (the share of judged alerts that were related, by source, form, hops and materiality).
+
+**Onboarding**
+- `torus onboard` and `/torus:onboard`: tickers or a portfolio CSV become watched companies, with
+  matching starter packs suggested and one mapping job per company.
+- `company-mapper` subagent (Haiku): reads each company's latest 10-K or 20-F and records
+  suppliers, customers, competitors and customer concentration, citing the filing.
+- Starter packs `software`, `banks`, `energy` and `pharma`, alongside `semis`.
+- SEC filings as text: `filing_text` reads a filing by section (business, risk factors, MD&A...),
+  cached under `TORUS_HOME/sources/edgar`.
+
+**Automation**
+- `auto_distill` setting: `ask` (default) has Claude offer `/torus:distill` when sessions are
+  queued; `on` starts a background Haiku curator when a session ends.
+- `torus schedule install|status|remove` runs the watchers with the platform's scheduler;
+  `torus doctor` warns when nothing does.
+
+**Checking the research**
+- `torus audit` and `/torus:audit`: expired or thinly sourced assumptions, theses past their
+  horizon (horizons such as "12m", "FY2026" or "Q3 2026" are now read as dates) or gone stale,
+  possible conflicts, inferences on retracted claims, unconfirmed starter links, orphans.
+- Capture receipts after each turn, and `/torus:undo` with `recent_records` / `undo_records`.
+- `/torus:challenge`: `thesis_weak_points` plus a `thesis-challenger` subagent that argues the
+  other side and proposes risk claims and triggers for approval.
+- `/torus:whatif` and `torus whatif`: alert analysis on a hypothetical event, recording nothing.
+
+**Filings, memos and the scorecard**
+- `filing_diff`: new, dropped and reworded sentences between a filing and the previous one of the
+  same form. New 10-K/10-Q events from the watcher summarise their risk-factor changes.
+- `/torus:ingest`: a filing, transcript, PDF or web page into evidence and claims.
+- `torus memo` and `/torus:memo`: a thesis as a sourced memo in Markdown and HTML.
+- `torus scorecard` and `/torus:scorecard`: returns against a benchmark in the thesis's direction,
+  drawdowns, outcomes (from status, at the horizon, or set by hand) and calibration (Brier score,
+  reliability by confidence band). Daily closes from Yahoo Finance or a CSV import.
+
+**Explorer**
+- A time slider and Replay: the graph as it stood on any date, with each thesis's status then.
+  `#at=YYYY-MM-DD` opens a past date directly (and combines with `#select=`).
+- A thesis's alerts show how their score was built.
+
+**Under the hood**
+- The Stop hook now runs synchronously (it prints the capture receipt).
+- `scripts/seed_demo.py` spreads the demo research over four months, for the screenshots.
+- Schema v11 (migrations 0008-0011), applied automatically on first use.
+- MCP server: 16 new tools (42 in all), most in `torus.mcp.workflows`.
+
 ## 0.1.0
 
 The first release: a local research knowledge graph for Claude Code.
