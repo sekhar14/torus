@@ -183,6 +183,56 @@ You don't need to remember commands; ask in plain words and Claude uses the righ
 Behind them, the MCP server gives Claude 42 tools, from `recall` and `record_claim` to
 `filing_diff`, `whatif` and `scorecard`.
 
+## Using Torus in Claude Desktop
+
+Claude Code is where Torus works best, but the Claude Desktop app's chat can use the same graph
+through the MCP server. (Claude in a web browser can't: it only reaches MCP servers at a public
+address, and Torus runs on your machine.)
+
+Do steps 1 and 2 of [Getting started](#getting-started-about-5-minutes), then add Torus to
+`claude_desktop_config.json` (Settings > Developer > Edit Config; on Windows it's
+`%APPDATA%\Claude\claude_desktop_config.json`, on macOS
+`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "torus": {
+      "command": "torus",
+      "args": ["serve"]
+    }
+  }
+}
+```
+
+Restart Claude Desktop. If it can't start the server, use the full path to `torus` (`where torus`
+on Windows, `which torus` on macOS) as `command`. If you set `TORUS_HOME`, add it under `"env"`
+so Desktop and Claude Code share one graph.
+
+**What you lose without Claude Code.** Desktop gets all the tools but none of the plugin, so:
+
+| In Claude Code | In Claude Desktop |
+|---|---|
+| Prior research is added automatically when a prompt mentions a company | Claude must call `recall` itself, so tell it to (see below) |
+| Claude follows the research protocol (atomic claims, sources, triggers) | Only if your instructions ask for it |
+| A receipt after each turn, and `/torus:undo` | Ask "what did you record?" or "undo that" in plain words (`recent_records`, `undo_records`) |
+| The Haiku curator records what Claude missed | Nothing is captured unless Claude records it during the chat |
+| `/torus:` commands | Ask in plain words: "review my alerts", "audit my research" |
+| Subagents: company mapper, curator, thesis challenger | None: onboarding maps companies in the main chat, and challenges are argued by Claude itself |
+
+Watchers, alerts, the audit, the scorecard, memos and the explorer all work the same, since they
+run from the `torus` command and the shared database.
+
+To get closest to the Claude Code experience, put something like this in a Claude project's
+instructions (or your profile preferences):
+
+> Torus is my research memory. Before researching a company, call `recall` with its ticker and
+> build on earlier theses, claims and ruled-out ideas. While researching, record sources with
+> `record_evidence`, atomic claims that cite them with `record_claim`, theses with their
+> assumptions, horizon and triggers with `record_thesis`, and dead ends with
+> `record_rejected_hypothesis`. Correct with `supersede_claim`, never by recording a duplicate.
+> At the end, tell me what you recorded.
+
 ## Reading SEC filings
 
 Torus reads filings from EDGAR for Claude, so research cites primary sources instead of
