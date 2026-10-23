@@ -133,6 +133,23 @@ def _close_on(prices: list[tuple[date, float]], day: date) -> tuple[date, float]
     return found
 
 
+def stance_move(store: Backend, thesis: Thesis, since: date, until: date) -> float | None:
+    """Return against the benchmark between two days (from entry, if later), in the
+    thesis's direction; None without a stance, a symbol or prices on both days."""
+    sign = SIGN.get(thesis.stance)
+    if not sign or not thesis.instrument:
+        return None
+    start = max(since, entry_day(thesis))
+    moves = []
+    for symbol in (thesis.instrument, benchmark_for(store, thesis)):
+        prices = store.prices(symbol, start - timedelta(days=LOOKBACK_DAYS))
+        first, last = _close_on(prices, start), _close_on(prices, until)
+        if first is None or last is None or last[0] <= first[0]:
+            return None
+        moves.append(last[1] / first[1] - 1)
+    return round((moves[0] - moves[1]) * sign, 4)
+
+
 def _initial_confidence(store: Backend, thesis: Thesis) -> float:
     history = store.thesis_history(thesis.id)
     return history[0].confidence if history else thesis.confidence

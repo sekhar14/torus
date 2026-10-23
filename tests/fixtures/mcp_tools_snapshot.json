@@ -1440,6 +1440,346 @@
       "type": "object"
     }
   },
+  "digest": {
+    "input": {
+      "properties": {
+        "since_days": {
+          "default": 7,
+          "description": "How far back to look",
+          "maximum": 90,
+          "minimum": 1,
+          "title": "Since Days",
+          "type": "integer"
+        }
+      },
+      "title": "digest_toolArguments",
+      "type": "object"
+    },
+    "output": {
+      "$defs": {
+        "DigestAlert": {
+          "properties": {
+            "alert_id": {
+              "title": "Alert Id",
+              "type": "string"
+            },
+            "event_at": {
+              "format": "date-time",
+              "title": "Event At",
+              "type": "string"
+            },
+            "event_title": {
+              "title": "Event Title",
+              "type": "string"
+            },
+            "score": {
+              "title": "Score",
+              "type": "number"
+            },
+            "status": {
+              "title": "Status",
+              "type": "string"
+            },
+            "strength": {
+              "title": "Strength",
+              "type": "string"
+            },
+            "uri": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Uri"
+            }
+          },
+          "required": [
+            "alert_id",
+            "event_title",
+            "event_at",
+            "uri",
+            "score",
+            "strength",
+            "status"
+          ],
+          "title": "DigestAlert",
+          "type": "object"
+        },
+        "DigestDue": {
+          "properties": {
+            "days": {
+              "title": "Days",
+              "type": "integer"
+            },
+            "due": {
+              "format": "date-time",
+              "title": "Due",
+              "type": "string"
+            },
+            "horizon": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Horizon"
+            },
+            "thesis_id": {
+              "title": "Thesis Id",
+              "type": "string"
+            },
+            "title": {
+              "title": "Title",
+              "type": "string"
+            }
+          },
+          "required": [
+            "thesis_id",
+            "title",
+            "horizon",
+            "due",
+            "days"
+          ],
+          "title": "DigestDue",
+          "type": "object"
+        },
+        "DigestFinding": {
+          "properties": {
+            "severity": {
+              "$ref": "#/$defs/Severity"
+            },
+            "title": {
+              "title": "Title",
+              "type": "string"
+            }
+          },
+          "required": [
+            "severity",
+            "title"
+          ],
+          "title": "DigestFinding",
+          "type": "object"
+        },
+        "DigestMove": {
+          "properties": {
+            "benchmark": {
+              "title": "Benchmark",
+              "type": "string"
+            },
+            "move": {
+              "title": "Move",
+              "type": "number"
+            },
+            "symbol": {
+              "title": "Symbol",
+              "type": "string"
+            },
+            "thesis_id": {
+              "title": "Thesis Id",
+              "type": "string"
+            },
+            "title": {
+              "title": "Title",
+              "type": "string"
+            }
+          },
+          "required": [
+            "thesis_id",
+            "title",
+            "symbol",
+            "benchmark",
+            "move"
+          ],
+          "title": "DigestMove",
+          "type": "object"
+        },
+        "DigestThesisAlerts": {
+          "properties": {
+            "alerts": {
+              "items": {
+                "$ref": "#/$defs/DigestAlert"
+              },
+              "title": "Alerts",
+              "type": "array"
+            },
+            "thesis_id": {
+              "title": "Thesis Id",
+              "type": "string"
+            },
+            "thesis_title": {
+              "title": "Thesis Title",
+              "type": "string"
+            }
+          },
+          "required": [
+            "thesis_id",
+            "thesis_title",
+            "alerts"
+          ],
+          "title": "DigestThesisAlerts",
+          "type": "object"
+        },
+        "DigestThesisChange": {
+          "properties": {
+            "confidence_from": {
+              "title": "Confidence From",
+              "type": "number"
+            },
+            "confidence_to": {
+              "title": "Confidence To",
+              "type": "number"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reason"
+            },
+            "status_from": {
+              "$ref": "#/$defs/ThesisStatus"
+            },
+            "status_to": {
+              "$ref": "#/$defs/ThesisStatus"
+            },
+            "thesis_id": {
+              "title": "Thesis Id",
+              "type": "string"
+            },
+            "title": {
+              "title": "Title",
+              "type": "string"
+            }
+          },
+          "required": [
+            "thesis_id",
+            "title",
+            "status_from",
+            "status_to",
+            "confidence_from",
+            "confidence_to",
+            "reason"
+          ],
+          "title": "DigestThesisChange",
+          "type": "object"
+        },
+        "Severity": {
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "ThesisStatus": {
+          "enum": [
+            "active",
+            "at_risk",
+            "broken",
+            "confirmed",
+            "archived"
+          ],
+          "title": "ThesisStatus",
+          "type": "string"
+        }
+      },
+      "properties": {
+        "activity": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Activity",
+          "type": "object"
+        },
+        "audit_counts": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Audit Counts",
+          "type": "object"
+        },
+        "coming_due": {
+          "items": {
+            "$ref": "#/$defs/DigestDue"
+          },
+          "title": "Coming Due",
+          "type": "array"
+        },
+        "markdown": {
+          "default": "",
+          "title": "Markdown",
+          "type": "string"
+        },
+        "moves": {
+          "items": {
+            "$ref": "#/$defs/DigestMove"
+          },
+          "title": "Moves",
+          "type": "array"
+        },
+        "new_alerts": {
+          "items": {
+            "$ref": "#/$defs/DigestThesisAlerts"
+          },
+          "title": "New Alerts",
+          "type": "array"
+        },
+        "older_open_alerts": {
+          "title": "Older Open Alerts",
+          "type": "integer"
+        },
+        "since": {
+          "format": "date-time",
+          "title": "Since",
+          "type": "string"
+        },
+        "thesis_changes": {
+          "items": {
+            "$ref": "#/$defs/DigestThesisChange"
+          },
+          "title": "Thesis Changes",
+          "type": "array"
+        },
+        "top_findings": {
+          "items": {
+            "$ref": "#/$defs/DigestFinding"
+          },
+          "title": "Top Findings",
+          "type": "array"
+        },
+        "until": {
+          "format": "date-time",
+          "title": "Until",
+          "type": "string"
+        }
+      },
+      "required": [
+        "since",
+        "until",
+        "new_alerts",
+        "older_open_alerts",
+        "thesis_changes",
+        "coming_due",
+        "audit_counts",
+        "top_findings",
+        "moves",
+        "activity"
+      ],
+      "title": "Digest",
+      "type": "object"
+    }
+  },
   "filing_diff": {
     "input": {
       "properties": {

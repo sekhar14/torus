@@ -1,6 +1,6 @@
 """Command line interface: ``torus init | setup | status | resolve | detect | serve | hook |
-watch | notify | schedule | feed | alerts | onboard | audit | whatif | memo | scorecard | config |
-graph | explore | demo | doctor | export | import``."""
+watch | notify | schedule | feed | alerts | onboard | audit | whatif | memo | digest |
+scorecard | config | graph | explore | demo | doctor | export | import``."""
 
 from __future__ import annotations
 
@@ -703,6 +703,40 @@ def _cmd_memo(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_digest(args: argparse.Namespace) -> int:
+    import webbrowser
+    from datetime import UTC, datetime
+
+    from torus.core.digest import build_digest, parse_since, save_digest
+
+    p = paths()
+    now = datetime.now(UTC)
+    try:
+        since = parse_since(args.since, now)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    with _open_store(p) as store:
+        digest = build_digest(store, since, now)
+    if args.json:
+        print(digest.model_dump_json(indent=2))
+        return 0
+    out_dir = Path(args.out) if args.out else p.home / "digests"
+    markdown, page = save_digest(digest, out_dir)
+    alerts = sum(len(g.alerts) for g in digest.new_alerts)
+    summary = (
+        "nothing needs your attention"
+        if digest.empty
+        else f"{alerts} new alert(s), {len(digest.thesis_changes)} thesis change(s),"
+        f" {len(digest.coming_due)} coming due"
+    )
+    print(f"Since {since:%Y-%m-%d %H:%M} UTC: {summary}.")
+    print(f"Wrote {markdown}\nWrote {page}")
+    if args.open:
+        webbrowser.open(page.resolve().as_uri())
+    return 0
+
+
 def _pct(value: float | None) -> str:
     return f"{value:+.1%}" if value is not None else "   n/a"
 
@@ -1232,6 +1266,13 @@ def build_parser() -> argparse.ArgumentParser:
     memo.add_argument("--out", help="directory (default TORUS_HOME/memos)")
     memo.add_argument("--open", action="store_true", help="open the HTML in a browser")
     memo.set_defaults(func=_cmd_memo)
+
+    digest = sub.add_parser("digest", help="what happened since a date: alerts, changes, due")
+    digest.add_argument("--since", default="1d", help="12h, 1d, 2w or YYYY-MM-DD (default 1d)")
+    digest.add_argument("--out", help="directory (default TORUS_HOME/digests)")
+    digest.add_argument("--open", action="store_true", help="open the HTML in a browser")
+    digest.add_argument("--json", action="store_true", help="print the digest as JSON instead")
+    digest.set_defaults(func=_cmd_digest)
 
     card = sub.add_parser("scorecard", help="how tracked theses did, and calibration")
     card.add_argument("--refresh", action="store_true", help="fetch the latest prices first")

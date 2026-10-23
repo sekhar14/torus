@@ -22,8 +22,11 @@ Give the user a short overview of their research memory.
 2. If the user named a company or ticker, summarise its active theses (status,
    confidence, horizon) and the most recent claims, with dates.
 <!-- end -->
-3. If the user asked about a period ("since Monday", "this month"), call
-   `what_changed` with that start date.
+3. If the user asked about a period ("this week", "since Monday", "this month"),
+   call `digest` with `since_days` covering it: new alerts by thesis, thesis
+   status and confidence changes, theses coming due, scorecard moves and
+   activity, with ready-made `markdown`. For a line-by-line record of what was
+   written, call `what_changed` with the start date.
 4. Point to the next step when there is one: {{review}} for open alerts,
    {{audit}} for high-severity findings, {{scorecard}} if theses are
    tracked.

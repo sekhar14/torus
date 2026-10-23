@@ -7,7 +7,7 @@ undo, what-if, memos, challenges and the scorecard.
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Annotated
 
 from mcp.server.mcpserver import MCPServer
@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 from torus.config import has_curator
 from torus.core.audit import AuditReport, audit
 from torus.core.challenge import WeakPoints, weak_points
+from torus.core.digest import Digest, build_digest
 from torus.core.filing_diff import Changed, diff_sections
 from torus.core.memo import build_memo, render_markdown, save_memo
 from torus.core.models import Outcome, QueueStatus, Thesis, ThesisOutcome
@@ -485,6 +486,17 @@ def register_workflow_tools(server: MCPServer, tools: TorusTools) -> None:
         theses past their horizon or gone stale, claims that may conflict,
         unconfirmed starter links, orphans. Each finding suggests a fix."""
         return audit(store, tools.clock.now(), stale_days=stale_days)
+
+    @server.tool(name="digest", annotations=READ_ONLY)
+    @guard
+    def digest_tool(
+        since_days: Annotated[int, Field(ge=1, le=90, description="How far back to look")] = 7,
+    ) -> Digest:
+        """What happened in the research over the last days: new alerts by thesis,
+        thesis status and confidence changes, theses coming due, audit counts,
+        scorecard moves and activity. ``markdown`` is ready to show."""
+        now = tools.clock.now()
+        return build_digest(store, now - timedelta(days=since_days), now)
 
     # -- filings ---------------------------------------------------------------------
 

@@ -15,6 +15,7 @@ from mcp.types import CallToolResult, TextContent
 from conftest import FIXTURES
 from torus.config import CaptureMode
 from torus.core.clock import ManualClock
+from torus.core.models import ThesisStatus
 from torus.core.reference import ReferenceData
 from torus.core.store import SQLiteBackend
 from torus.mcp.server import TorusTools, build_server
@@ -59,6 +60,7 @@ EXPECTED_TOOLS = {
     "complete_mapping",
     "filing_text",
     "audit",
+    "digest",
     "recent_records",
     "undo_records",
     "whatif",
@@ -85,6 +87,7 @@ READ_ONLY_TOOLS = {
     "find_paths",
     "filing_text",
     "audit",
+    "digest",
     "recent_records",
     "whatif",
     "thesis_weak_points",
@@ -828,3 +831,17 @@ async def test_analyst_toolset_and_session_records_in_desktop_and_codex(
                 records=[{"type": "claim", "id": claim["id"]}],
             )
             assert any(o["id"] == claim["id"] for o in undone["outcomes"])
+
+
+async def test_digest_tool(client: Client, store: SQLiteBackend, clock: ManualClock) -> None:
+    from conftest import GraphFactory
+
+    g = GraphFactory(store)
+    thesis = g.thesis("NVIDIA supply-bound", g.company("NVDA"))
+    clock.advance(days=3)
+    store.update_thesis(thesis.id, "TSMC delay", status=ThesisStatus.AT_RISK, confidence=0.4)
+    result = await call(client, "digest", since_days=2)
+    assert result["empty"] is False
+    assert result["thesis_changes"][0]["status_to"] == "at_risk"
+    assert "## Thesis changes" in result["markdown"]
+    await call_error(client, "digest", since_days=0)
