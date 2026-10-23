@@ -1,5 +1,7 @@
 # Torus
 
+<!-- mcp-name: io.github.sekhar14/torus -->
+
 **Stock research memory for Claude Code, Claude Desktop and Codex.** Torus gives Claude a
 memory for your equity research. Before it answers, Claude sees what you already know about a
 company: your theses, the sourced facts behind them, its suppliers, customers and competitors,

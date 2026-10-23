@@ -37,6 +37,7 @@ Issues = "https://github.com/sekhar14/torus/issues"
 
 [project.scripts]
 torus = "torus.cli:main"
+torus-kg = "torus.cli:main"
 
 [build-system]
 requires = ["hatchling>=1.25"]
