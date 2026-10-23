@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.1
+
+Listed in the official MCP Registry as `io.github.sekhar14/torus`.
+
+- **`server.json`.** The registry entry: MCP clients that read the registry can install Torus
+  from PyPI and run it with `uvx torus-kg serve`.
+- **`torus-kg` command.** Same as `torus`, so `uvx torus-kg` finds a command named after the
+  package.
+
 ## 0.4.0
 
 Alerts reach you without opening a chat: desktop notifications, a digest, and delivery to your
