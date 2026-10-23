@@ -1,11 +1,22 @@
 [project]
 name = "torus-kg"
-version = "0.3.0"
-description = "Stock research memory for Claude Code: equity research, investment theses and SEC filing alerts in a local knowledge graph"
+version = "0.3.1"
+description = "Stock research memory for Claude Code, Claude Desktop and Codex: equity research, investment theses and SEC filing alerts in a local knowledge graph"
 readme = "README.md"
 keywords = ["stock-research", "equity-research", "investment-research", "investing", "stocks", "sec-edgar", "knowledge-graph", "claude-code", "mcp"]
 license = "Apache-2.0"
 requires-python = ">=3.11"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business :: Financial :: Investment",
+]
 dependencies = [
     "pydantic>=2.7,<3",
     "mcp>=2.3,<3",
@@ -22,6 +33,7 @@ dev = [
 [project.urls]
 Homepage = "https://github.com/sekhar14/torus"
 Changelog = "https://github.com/sekhar14/torus/blob/main/CHANGELOG.md"
+Issues = "https://github.com/sekhar14/torus/issues"
 
 [project.scripts]
 torus = "torus.cli:main"

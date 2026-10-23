@@ -1,0 +1,86 @@
+name: release
+
+# Publishing a GitHub release uploads that version to PyPI. Running the workflow by hand
+# only builds and checks the package.
+#
+# One-time setup, before the first release:
+# - On PyPI, add a trusted publisher for project `torus-kg`: this repository, workflow
+#   `release.yml`, environment `pypi`.
+# - In this repository's Settings > Environments, create `pypi`. Adding a required
+#   reviewer makes every upload wait for an approval.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+
+      - name: Release tag matches the package version
+        if: github.event_name == 'release'
+        run: |
+          version=$(grep -m1 '^version = ' pyproject.toml | cut -d'"' -f2)
+          if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} doesn't match version ${version} in pyproject.toml"
+            exit 1
+          fi
+
+      - run: uv build
+      - run: uvx twine check --strict dist/*
+
+      - name: The wheel carries its data files
+        run: |
+          python - <<'EOF'
+          import glob, zipfile
+          names = zipfile.ZipFile(glob.glob("dist/*.whl")[0]).namelist()
+          need = {
+              "migrations": ("torus/core/store/migrations/", ".sql"),
+              "starter packs": ("torus/data/starter/", ".json"),
+              "explorer": ("torus/explorer/", ".html"),
+              "workflows": ("torus/workflows/", ".md"),
+          }
+          missing = [k for k, (d, ext) in need.items()
+                     if not any(n.startswith(d) and n.endswith(ext) for n in names)]
+          assert not missing, f"wheel is missing: {missing}"
+          EOF
+
+      - name: The installed wheel runs
+        run: |
+          uv venv /tmp/smoke
+          uv pip install --python /tmp/smoke dist/*.whl
+          export TORUS_HOME=/tmp/smoke-home
+          /tmp/smoke/bin/torus --version
+          /tmp/smoke/bin/torus init
+          /tmp/smoke/bin/torus demo --no-open
+          /tmp/smoke/bin/torus doctor
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  pypi:
+    if: github.event_name == 'release'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/torus-kg
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

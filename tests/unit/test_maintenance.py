@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import io
 import json
+import shutil
+import sys
 from pathlib import Path
 
 import pytest
@@ -152,3 +154,106 @@ def test_doctor_finds_and_repairs_duplicate_links(tmp_path: Path) -> None:
     with SQLiteBackend.open(p.db) as store:
         # The copy dated June 2026 is older than the original, so the original stays.
         assert [r.id for r in store.relations(nvda.id, direction="in")] == [first.id]
+
+
+def test_doctor_flags_a_stale_ticker_list(tmp_path: Path) -> None:
+    import os
+    import time
+
+    from conftest import FIXTURES
+
+    p = Paths(tmp_path / "home").ensure()
+    ref = p.reference / "sec_company_tickers.json"
+    shutil.copy(FIXTURES / "sec_company_tickers.json", ref)
+    assert {c.name: c for c in doctor(p)}["SEC reference"].level is Level.OK
+    old = time.time() - 45 * 86400
+    os.utime(ref, (old, old))
+    check = {c.name: c for c in doctor(p)}["SEC reference"]
+    assert check.level is Level.WARN and "45 days ago" in check.detail
+
+
+def test_fix_repairs_what_doctor_flags(tmp_path: Path) -> None:
+    from test_automation import FakeRunner
+
+    from torus.core.reference import ReferenceData
+    from torus.maintenance import fix
+    from torus.schedule import Scheduler
+    from torus.setup import configure_codex
+
+    p = Paths(tmp_path / "home").ensure()
+    with SQLiteBackend.open(p.db) as store:
+        g = GraphFactory(store)
+        nvda = g.company("NVDA")
+        store.watch_entity(nvda.id)
+        g.fact("findable claim", nvda)
+        store._conn.execute("DELETE FROM claims_fts_data WHERE id > 10")  # corrupt the index
+    scheduler = Scheduler(p.home, platform="win32", runner=FakeRunner())
+    claude_cfg = tmp_path / "claude" / "claude_desktop_config.json"
+    claude_cfg.parent.mkdir()
+    claude_cfg.write_text("{not json", "utf-8")
+    codex_cfg = tmp_path / "codex" / "config.toml"
+    configure_codex(codex_cfg, command=sys.executable, args=["-m", "torus", "serve"])
+    shutil.rmtree(codex_cfg.parent / "skills")
+
+    fetched: list[str] = []
+
+    def fetch(dest: Path, contact: str) -> ReferenceData:
+        fetched.append(contact)
+        return ReferenceData.from_rows([(1045810, "NVDA", "NVIDIA CORP")])
+
+    def run_doctor() -> dict[str, Level]:
+        checks = doctor(p, scheduler=scheduler, claude_config=claude_cfg, codex_config=codex_cfg)
+        return {c.name: c.level for c in checks}
+
+    checks = doctor(p, scheduler=scheduler, claude_config=claude_cfg, codex_config=codex_cfg)
+    levels = {c.name: c.level for c in checks}
+    assert levels["search index"] is Level.FAIL
+    assert levels["watchers"] is levels["SEC reference"] is levels["schedule"] is Level.WARN
+    assert levels["Claude Desktop"] is levels["Codex"] is Level.WARN
+
+    # Without an email, the SEC steps are skipped and everything else is fixed.
+    done = fix(
+        p,
+        checks,
+        scheduler=scheduler,
+        claude_config=claude_cfg,
+        codex_config=codex_cfg,
+        fetch=fetch,
+    )
+    assert "search index: rebuilt" in done
+    assert any(d.startswith("watchers: skipped") for d in done)
+    assert any(d.startswith("SEC reference: skipped") for d in done)
+    assert any(d.startswith("Claude Desktop:") and "by hand" in d for d in done)
+    assert any(d.startswith("Codex: rewrote") for d in done)
+    assert not fetched
+    levels = run_doctor()
+    assert levels["search index"] is levels["schedule"] is levels["Codex"] is Level.OK
+    assert levels["Claude Desktop"] is Level.WARN  # invalid JSON is left for the user
+
+    done = fix(
+        p,
+        doctor(p, scheduler=scheduler, claude_config=claude_cfg, codex_config=codex_cfg),
+        contact="me@example.com",
+        scheduler=scheduler,
+        claude_config=claude_cfg,
+        codex_config=codex_cfg,
+        fetch=fetch,
+    )
+    assert "sec_contact: set to me@example.com" in done
+    assert "SEC reference: downloaded 1 companies" in done
+    assert fetched == ["me@example.com"]
+    with SQLiteBackend.open(p.db) as store:
+        assert store.get_setting("sec_contact") == "me@example.com"
+    assert run_doctor()["watchers"] is Level.OK
+
+
+def test_fix_does_nothing_on_a_healthy_home(tmp_path: Path) -> None:
+    from torus.maintenance import fix
+
+    p = Paths(tmp_path / "home").ensure()
+    configs = {
+        "claude_config": tmp_path / "claude" / "claude_desktop_config.json",
+        "codex_config": tmp_path / "codex" / "config.toml",
+    }
+    checks = [c for c in doctor(p, **configs) if c.name != "SEC reference"]
+    assert fix(p, checks, **configs) == []
