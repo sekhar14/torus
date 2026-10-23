@@ -23,6 +23,7 @@ from torus.core.notify import NOTIFY_DEFAULT, NOTIFY_SETTING
 from torus.core.reference import SEC_TICKERS_FILENAME, ReferenceData, fetch_sec_tickers
 from torus.core.store.migrate import latest_version
 from torus.core.store.sqlite import SQLiteBackend
+from torus.deliver import SECRET_SETTINGS
 from torus.notify import DesktopSender
 from torus.schedule import Scheduler
 
@@ -182,6 +183,8 @@ def doctor(
                 f"{level} alerts, via {detail}" if works else f"{level} alerts, but {detail}",
             )
 
+        add("digest", *_digest_check(store, scheduler or Scheduler(p.home)))
+
         parked = store.queue_items(statuses=[QueueStatus.PARKED])
         pending = store.queue_items(statuses=[QueueStatus.PENDING])
         add(
@@ -211,6 +214,26 @@ def doctor(
     cx_level, cx_detail = inspect_codex(codex_config or codex_config_path())
     add("Codex", Level(cx_level), cx_detail)
     return checks
+
+
+def _digest_check(store: SQLiteBackend, scheduler: Scheduler) -> tuple[Level, str]:
+    from torus import deliver
+
+    schedule = store.get_setting(deliver.DIGEST) or "off"
+    if schedule == "off":
+        return Level.INFO, "off (`torus config set digest daily` to send one)"
+    targets = deliver.destinations(store)
+    last = deliver.last_sent(store)
+    error = store.get_setting(deliver.LAST_ERROR)
+    detail = f"{schedule} to {', '.join(targets) or 'nowhere'}"
+    detail += f", last sent {last:%Y-%m-%d %H:%M} UTC" if last else ", not sent yet"
+    if error:
+        return Level.WARN, f"{detail}; last error: {error}"
+    if not targets:
+        return Level.WARN, f"{detail}: set digest_webhook or digest_email_to and smtp_host"
+    if scheduler.status() is None:
+        return Level.WARN, f"{detail}, but nothing runs the watchers (`torus schedule install`)"
+    return Level.OK, detail
 
 
 def fix(
@@ -383,7 +406,10 @@ def export_graph(store: SQLiteBackend, out: TextIO) -> dict[str, int]:
         columns = [d[0] for d in cursor.description]
         n = 0
         for row in cursor:
-            out.write(json.dumps({"t": table, "r": dict(zip(columns, row, strict=True))}) + "\n")
+            record = dict(zip(columns, row, strict=True))
+            if table == "settings" and record.get("key") in SECRET_SETTINGS:
+                continue  # webhook URLs carry tokens; set them again after an import
+            out.write(json.dumps({"t": table, "r": record}) + "\n")
             n += 1
         counts[table] = n
     return counts

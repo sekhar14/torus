@@ -15,6 +15,7 @@ import sys
 from collections.abc import Sequence
 from dataclasses import asdict
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from torus import __version__
 from torus.config import Paths, paths
@@ -22,6 +23,9 @@ from torus.core.detect import DEFAULT_MIN_CONFIDENCE, EntityDetector
 from torus.core.reference import SEC_TICKERS_FILENAME, ReferenceData, fetch_sec_tickers
 from torus.core.resolve import Resolver
 from torus.core.store.sqlite import SQLiteBackend
+
+if TYPE_CHECKING:
+    from torus.deliver import DeliveryResult
 
 ENV_CONTACT = "TORUS_SEC_CONTACT"
 AUDIT_LOW_PER_KIND = 3  # low findings of one kind listed before `torus audit` summarises
@@ -270,6 +274,17 @@ CONFIG_KEYS = {
     "benchmark": "ticker theses are measured against on the scorecard (default SPY)",
     "price_source": "yahoo (default) or none: where the scorecard gets daily closes",
     "notify": "strong (default), moderate or off: desktop notifications for new alerts",
+    "digest": "off (default), daily or weekly: send a digest from the watcher runs",
+    "digest_hour": "hour (0-23, local time) the digest goes out (default 8)",
+    "digest_weekday": "mon..sun: the day of a weekly digest (default mon)",
+    "digest_send_empty": "on or off (default): send a digest when nothing is new",
+    "digest_webhook": "https URL to post the digest to (Slack, Discord, ntfy or JSON)",
+    "digest_webhook_format": "auto (default), slack, discord, ntfy or json",
+    "digest_email_to": "address(es) to email the digest to, comma-separated",
+    "digest_email_from": "From address (default smtp_user)",
+    "smtp_host": "SMTP server for the digest email",
+    "smtp_port": "SMTP port (default 587 with STARTTLS; 465 for TLS)",
+    "smtp_user": "SMTP login; the password: `torus digest email-password`",
 }
 
 
@@ -291,6 +306,33 @@ def _check_config_value(key: str, value: str) -> str | None:
         return "price_source must be yahoo or none."
     if key == "notify" and value not in ("strong", "moderate", "off"):
         return "notify must be strong, moderate or off."
+    return _check_digest_value(key, value)
+
+
+def _check_digest_value(key: str, value: str) -> str | None:
+    from torus.core.digest import WEEKDAYS
+    from torus.deliver.webhook import FORMATS, check_url
+
+    choices = {
+        "digest": ("off", "daily", "weekly"),
+        "digest_weekday": WEEKDAYS,
+        "digest_send_empty": ("on", "off"),
+        "digest_webhook_format": FORMATS,
+    }
+    if key in choices and value not in choices[key]:
+        return f"{key} must be {', '.join(choices[key][:-1])} or {choices[key][-1]}."
+    ranges = {"digest_hour": (0, 23), "smtp_port": (1, 65535)}
+    if key in ranges:
+        low, high = ranges[key]
+        if not value.isdigit() or not low <= int(value) <= high:
+            return f"{key} must be a whole number from {low} to {high}."
+    if key == "digest_webhook":
+        return check_url(value)
+    if key == "digest_email_to" and not all("@" in a for a in value.split(",")):
+        return "digest_email_to must be email addresses, comma-separated."
+    if key == "digest_email_from" and "@" not in value:
+        return "digest_email_from must be an email address."
+    return None
     return None
 
 
@@ -299,6 +341,7 @@ def _open_store(p: Paths) -> SQLiteBackend:
 
 
 def _cmd_watch_run(args: argparse.Namespace) -> int:
+    from torus.deliver import Delivery
     from torus.notify import DesktopSender
     from torus.watchers import run_watchers
 
@@ -311,12 +354,15 @@ def _cmd_watch_run(args: argparse.Namespace) -> int:
             rss=not args.no_rss,
             home=p.home,
             notifier=None if args.no_notify else DesktopSender(),
+            delivery=None if args.no_digest else Delivery(),
         )
     if args.json:
         rows = [asdict(s) for s in report.sources]
         if report.notify is not None:
             rows.append({"source": "notify", **asdict(report.notify)})
-        print(json.dumps(rows, indent=2))
+        if report.digest is not None:
+            rows.append({"source": "digest", **asdict(report.digest)})
+        print(json.dumps(rows, indent=2, default=str))
     else:
         for s in report.sources:
             status = (
@@ -333,6 +379,12 @@ def _cmd_watch_run(args: argparse.Namespace) -> int:
             status = f"{n.sent} notification(s) for {n.alerts} alert(s)"
             status += "".join(f"; failed: {e}" for e in n.errors)
             print(f"{'notify':<40} {status}")
+        if report.digest is not None:
+            d = report.digest
+            parts = [f"sent to {', '.join(d.sent)}"] if d.sent else []
+            parts += [f"failed: {e}" for e in d.errors]
+            parts += [f"not sent: {d.skipped}"] if d.skipped else []
+            print(f"{'digest':<40} {'; '.join(parts)}")
         print(f"Total: {report.new_events} new event(s), {report.alerts} alert(s)")
     return 1 if report.errors else 0
 
@@ -703,38 +755,89 @@ def _cmd_memo(args: argparse.Namespace) -> int:
     return 0
 
 
+def _print_delivery(result: DeliveryResult) -> int:
+    for target in result.sent:
+        print(f"Sent to {target}")
+    for error in result.errors:
+        print(f"Failed: {error}", file=sys.stderr)
+    if result.skipped:
+        print(f"Not sent: {result.skipped}", file=sys.stderr)
+    return 1 if result.errors or (result.skipped and not result.sent) else 0
+
+
+def _cmd_digest_password(p: Paths) -> int:
+    import getpass
+
+    from torus.deliver.mail import EmailError, write_password
+
+    try:
+        password = getpass.getpass("SMTP password (not shown): ")
+    except EOFError:
+        password = ""
+    if not password:
+        print("No password entered; nothing changed.", file=sys.stderr)
+        return 2
+    try:
+        path = write_password(p.home, password)
+    except (EmailError, OSError) as exc:
+        print(f"Couldn't save the password: {exc}", file=sys.stderr)
+        return 1
+    print(f"Saved to {path}, readable by you only. TORUS_SMTP_PASSWORD, if set, wins.")
+    return 0
+
+
 def _cmd_digest(args: argparse.Namespace) -> int:
     import webbrowser
-    from datetime import UTC, datetime
+    from datetime import UTC, datetime, timedelta
 
+    from torus import deliver
     from torus.core.digest import build_digest, parse_since, save_digest
 
     p = paths()
     now = datetime.now(UTC)
-    try:
-        since = parse_since(args.since, now)
-    except ValueError as exc:
-        print(str(exc), file=sys.stderr)
-        return 2
+    if args.action == "email-password":
+        return _cmd_digest_password(p)
     with _open_store(p) as store:
+        if args.action == "test-send":
+            test = build_digest(store, now, now)
+            test = test.model_copy(
+                update={
+                    "markdown": "# Torus digest test\n\nIf you can read this, Torus can"
+                    " send digests here.\n"
+                }
+            )
+            return _print_delivery(deliver.deliver(store, test, p.home, None, deliver.Delivery()))
+        try:
+            since = parse_since(args.since, now) if args.since else None
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+        if since is None:  # --send carries on from the last digest sent
+            last = deliver.last_sent(store) if args.send else None
+            since = last if last and last < now else now - timedelta(days=1)
         digest = build_digest(store, since, now)
-    if args.json:
-        print(digest.model_dump_json(indent=2))
-        return 0
-    out_dir = Path(args.out) if args.out else p.home / "digests"
-    markdown, page = save_digest(digest, out_dir)
-    alerts = sum(len(g.alerts) for g in digest.new_alerts)
-    summary = (
-        "nothing needs your attention"
-        if digest.empty
-        else f"{alerts} new alert(s), {len(digest.thesis_changes)} thesis change(s),"
-        f" {len(digest.coming_due)} coming due"
-    )
-    print(f"Since {since:%Y-%m-%d %H:%M} UTC: {summary}.")
-    print(f"Wrote {markdown}\nWrote {page}")
+        if args.json:
+            print(digest.model_dump_json(indent=2))
+            return 0
+        out_dir = Path(args.out) if args.out else p.home / "digests"
+        markdown, page = save_digest(digest, out_dir)
+        alerts = sum(len(g.alerts) for g in digest.new_alerts)
+        summary = (
+            "nothing needs your attention"
+            if digest.empty
+            else f"{alerts} new alert(s), {len(digest.thesis_changes)} thesis change(s),"
+            f" {len(digest.coming_due)} coming due"
+        )
+        print(f"Since {since:%Y-%m-%d %H:%M} UTC: {summary}.")
+        print(f"Wrote {markdown}\nWrote {page}")
+        code = 0
+        if args.send:
+            result = deliver.deliver(store, digest, p.home, page, deliver.Delivery())
+            deliver.record(store, result, now)
+            code = _print_delivery(result)
     if args.open:
         webbrowser.open(page.resolve().as_uri())
-    return 0
+    return code
 
 
 def _pct(value: float | None) -> str:
@@ -842,6 +945,9 @@ def _cmd_scorecard_import(args: argparse.Namespace) -> int:
 
 
 def _cmd_config(args: argparse.Namespace) -> int:
+    from torus.deliver import SECRET_SETTINGS
+    from torus.deliver.webhook import mask_url
+
     if args.key not in CONFIG_KEYS:
         print(f"Unknown key {args.key!r}. Known: {', '.join(CONFIG_KEYS)}", file=sys.stderr)
         return 2
@@ -853,6 +959,8 @@ def _cmd_config(args: argparse.Namespace) -> int:
                 return 2
             store.set_setting(args.key, args.value or None)
         value = store.get_setting(args.key)
+    if value is not None and args.key in SECRET_SETTINGS:
+        value = mask_url(value)
     print(f"{args.key} = {value if value is not None else '(unset)'}")
     return 0
 
@@ -1170,6 +1278,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--no-edgar", action="store_true")
     run.add_argument("--no-rss", action="store_true")
     run.add_argument("--no-notify", action="store_true", help="no desktop notifications")
+    run.add_argument("--no-digest", action="store_true", help="don't send a scheduled digest")
     run.add_argument("--json", action="store_true", help="machine-readable output")
     run.set_defaults(func=_cmd_watch_run)
     add = watch_sub.add_parser("add", help="watch a company (ticker, name, CIK or id)")
@@ -1268,10 +1377,23 @@ def build_parser() -> argparse.ArgumentParser:
     memo.set_defaults(func=_cmd_memo)
 
     digest = sub.add_parser("digest", help="what happened since a date: alerts, changes, due")
-    digest.add_argument("--since", default="1d", help="12h, 1d, 2w or YYYY-MM-DD (default 1d)")
+    digest.add_argument(
+        "action",
+        nargs="?",
+        choices=["test-send", "email-password"],
+        help="test-send: a test message to each destination; email-password: save the"
+        " SMTP password",
+    )
+    digest.add_argument(
+        "--since",
+        help="12h, 1d, 2w or YYYY-MM-DD (default 1d; with --send, since the last digest sent)",
+    )
     digest.add_argument("--out", help="directory (default TORUS_HOME/digests)")
     digest.add_argument("--open", action="store_true", help="open the HTML in a browser")
     digest.add_argument("--json", action="store_true", help="print the digest as JSON instead")
+    digest.add_argument(
+        "--send", action="store_true", help="also send it to digest_webhook / digest_email_to"
+    )
     digest.set_defaults(func=_cmd_digest)
 
     card = sub.add_parser("scorecard", help="how tracked theses did, and calibration")
