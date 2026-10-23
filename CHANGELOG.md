@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.3.1
+
+Easier to try, and to fix when something's off.
+
+- **`torus demo`.** Builds a sample graph in `TORUS_HOME/demo` and opens it in the explorer:
+  NVIDIA, TSMC, Micron and AMD theses researched over four months, an open alert from a TSMC
+  filing, a thesis that broke, and the `semis` starter pack. Your own graph is untouched, and
+  running it again starts the demo over. `--no-pack` leaves out the starter pack.
+  `torus setup` now mentions it.
+- **`torus doctor --fix`.** Fixes what the checks flag: a broken search index, duplicate links, a
+  missing SEC email (it asks, or pass `--contact`), a missing or old SEC ticker list, a watcher
+  schedule that isn't installed, and broken Claude Desktop or Codex entries. It reports each fix
+  and each skip, then checks again.
+- **The doctor flags an old ticker list.** A list downloaded more than 30 days ago misses new
+  listings and ticker changes, so it's now a warning.
+- **On PyPI.** `pip install torus-kg` installs the `torus` command. A release workflow builds
+  the package, checks that the wheel carries its migrations, starter packs, explorer and
+  workflows, installs it and runs `torus demo`, then uploads it to PyPI through trusted
+  publishing when a GitHub release is published. The README's images and links are now
+  absolute, so they show on PyPI.
+
 ## 0.3.0
 
 Torus in Claude Desktop and Codex: the same single-user research loop as in Claude Code, set up

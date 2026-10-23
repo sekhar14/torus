@@ -6,7 +6,7 @@ company: your theses, the sourced facts behind them, its suppliers, customers an
 and the ideas you ruled out. New research builds on the old, and every new fact is saved with
 its source. When a new SEC filing or news story threatens a thesis, Torus warns you.
 
-![Torus graph explorer: the semiconductor value chain with NVIDIA, Micron and AMD theses, an alert from a TSMC filing, and the time slider](docs/images/explorer-overview.png)
+![Torus graph explorer: the semiconductor value chain with NVIDIA, Micron and AMD theses, an alert from a TSMC filing, and the time slider](https://raw.githubusercontent.com/sekhar14/torus/main/docs/images/explorer-overview.png)
 
 Ask Claude *"Is NVIDIA still supply-bound?"* and it starts from what you already concluded, not
 from scratch. Torus keeps:
@@ -30,7 +30,7 @@ Built for analysts, portfolio managers and serious individual investors.
 - **Time-aware.** Every fact records when it was true and when you believed it, so you can ask
   what you thought on any past date. Nothing is deleted: corrections are new versions.
 
-*Torus is a research memory, not financial advice.* See [CHANGELOG.md](CHANGELOG.md) for what's
+*Torus is a research memory, not financial advice.* See [CHANGELOG.md](https://github.com/sekhar14/torus/blob/main/CHANGELOG.md) for what's
 in each release.
 
 ## Pick your app
@@ -50,14 +50,15 @@ one and pick up in another.
 **Claude Desktop**
 
 ```bash
-pip install "git+https://github.com/sekhar14/torus.git@v0.3.0"
+pip install torus-kg
 torus setup
 ```
 
-`torus setup` asks for the email the SEC requires, downloads the SEC ticker list, adds Torus to
-Claude Desktop's settings (it keeps a `.bak` copy and leaves your other servers alone), and
-schedules the filing watchers. Restart Claude Desktop, then try the **Onboard companies** prompt
-from the "+" menu with a few tickers.
+The package is called `torus-kg` on PyPI; the command it installs is `torus`. `torus setup` asks
+for the email the SEC requires, downloads the SEC ticker list, adds Torus to Claude Desktop's
+settings (it keeps a `.bak` copy and leaves your other servers alone), and schedules the filing
+watchers. Restart Claude Desktop, then try the **Onboard companies** prompt from the "+" menu
+with a few tickers.
 
 **Codex**
 
@@ -73,11 +74,16 @@ See [Getting started](#getting-started-about-5-minutes) below. `torus setup` als
 
 `torus setup` configures the apps it finds; pass `--claude-desktop` or `--codex` to configure one
 anyway, or `--no-codex` / `--no-claude-desktop` to skip one. `torus doctor` checks each app's
-entry and that the server starts.
+entry and that the server starts, and `torus doctor --fix` repairs what it can.
+
+**Just looking?** `torus demo` builds a small sample graph (NVIDIA, TSMC, Micron and AMD theses,
+an alert from a TSMC filing, the `semis` starter pack) in its own folder, `TORUS_HOME/demo`, and
+opens it in the explorer. Your own graph is untouched, and every piece of sample research is
+marked `[demo]`.
 
 ## How it works
 
-![How Torus works: you ask about a company; Torus recalls earlier research; Claude researches and records sourced claims and theses in the Torus graph. While you're away, Torus watches new SEC filings and news, raises an alert on the thesis it affects, and you review it.](docs/images/how-it-works.svg)
+![How Torus works: you ask about a company; Torus recalls earlier research; Claude researches and records sourced claims and theses in the Torus graph. While you're away, Torus watches new SEC filings and news, raises an alert on the thesis it affects, and you review it.](https://raw.githubusercontent.com/sekhar14/torus/main/docs/images/how-it-works.svg)
 
 **Why this helps.** Research done in chat is usually thrown away: the next session starts from
 scratch, and nothing connects new information to what you already concluded. Torus keeps the
@@ -103,7 +109,7 @@ You need Python 3.11+ and Claude Code.
 required:
 
 ```bash
-pip install "git+https://github.com/sekhar14/torus.git@v0.3.0"
+pip install torus-kg
 ```
 
 **2. Set it up:**
@@ -274,7 +280,7 @@ torus explore --no-open       # write the file without opening a browser
 This writes a single self-contained HTML file (default `~/.torus/explorer.html`) and opens it in
 your browser. It works offline and needs nothing installed, so you can share the file.
 
-![A thesis selected in the explorer: its alert with the paths that explain it, the claims it rests on with sources, its trigger and history](docs/images/explorer-thesis.png)
+![A thesis selected in the explorer: its alert with the paths that explain it, the claims it rests on with sources, its trigger and history](https://raw.githubusercontent.com/sekhar14/torus/main/docs/images/explorer-thesis.png)
 
 *The screenshots use the `semis` starter pack plus illustrative `[demo]` research
 (`scripts/seed_demo.py`). In the one above, the `[demo]` NVIDIA thesis is selected. A TSMC 8-K
@@ -303,7 +309,7 @@ boosted because the filing's wording matches the thesis's trigger.*
   `explorer.html#select=NVDA`, to open with that node selected, or `#at=2026-09-20` to open the
   graph as it stood that day. Combine them with `&`: `#select=NVDA&at=2026-09-20`.
 
-![The explorer set to 20 September: only the research recorded by then, with the AMD thesis still active (it broke later) and the TSMC alert](docs/images/explorer-replay.png)
+![The explorer set to 20 September: only the research recorded by then, with the AMD thesis still active (it broke later) and the TSMC alert](https://raw.githubusercontent.com/sekhar14/torus/main/docs/images/explorer-replay.png)
 
 *The same demo graph as it stood on 20 September: the starter pack wasn't added yet, the AMD
 thesis was still active (it broke in October), and the TSMC alert had just arrived.*
@@ -482,11 +488,19 @@ Claude's own web research goes through the app you use, as usual.
 
 ```bash
 torus doctor                  # health check (schema, integrity, search index, hooks, watchers, schedule)
-torus doctor --repair         # rebuild the search index
+torus doctor --fix            # fix what it flags (see below)
+torus doctor --repair         # only rebuild the search index and close duplicate links
 torus export                  # back up everything to TORUS_HOME/exports/*.jsonl
 torus import backup.jsonl     # restore into a fresh TORUS_HOME
 torus status                  # row counts and queue state
 ```
+
+`torus doctor --fix` rebuilds a broken search index, closes duplicate links, saves the SEC email
+(it asks, or pass `--contact EMAIL`), downloads the SEC ticker list when it's missing or more than
+30 days old, installs the watcher schedule when companies are watched but nothing runs the
+watchers, and rewrites a broken Claude Desktop or Codex entry (keeping a backup, and leaving a
+Codex entry you wrote yourself alone). It says what it did and what it skipped, then checks
+again.
 
 Upgrading migrates the database automatically the next time any `torus` command opens it. Hook
 activity is logged to `~/.torus/logs/hooks.log`, background curator output to
@@ -503,6 +517,6 @@ python -m venv .venv
 
 ## License
 
-Apache License 2.0. See [LICENSE](LICENSE).
+Apache License 2.0. See [LICENSE](https://github.com/sekhar14/torus/blob/main/LICENSE).
 
 Torus is a research memory, not financial advice.

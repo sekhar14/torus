@@ -1,6 +1,6 @@
 """Command line interface: ``torus init | setup | status | resolve | detect | serve | hook |
 watch | schedule | feed | alerts | onboard | audit | whatif | memo | scorecard | config |
-graph | explore | doctor | export | import``."""
+graph | explore | demo | doctor | export | import``."""
 
 from __future__ import annotations
 
@@ -171,6 +171,7 @@ def _cmd_setup(args: argparse.Namespace) -> int:
             print(f"Schedule:       not installed ({exc})", file=sys.stderr)
 
     print("\nRestart Claude Desktop or Codex to load Torus.")
+    print("New to Torus? `torus demo` builds a sample graph to look around in.")
     return 0
 
 
@@ -903,15 +904,96 @@ def _cmd_explore(args: argparse.Namespace) -> int:
     return 0
 
 
+DEMO_MARKER = ".torus-demo"  # marks a home `torus demo` made, so it may be rebuilt
+
+
+def _cmd_demo(args: argparse.Namespace) -> int:
+    import webbrowser
+
+    from torus.core.demo import DEMO_PACK, seed_demo
+    from torus.core.models import AlertStatus
+    from torus.explorer import build_data, render
+
+    real = paths()
+    home = Path(args.home).expanduser().resolve() if args.home else real.home / "demo"
+    if home == real.home:
+        print(
+            f"{home} is your TORUS_HOME; the demo needs a home of its own (pass --home DIR).",
+            file=sys.stderr,
+        )
+        return 2
+    p = Paths(home)
+    if p.db.exists() and not (home / DEMO_MARKER).exists():
+        print(f"{p.db} isn't a demo graph; pick another --home.", file=sys.stderr)
+        return 2
+    p.ensure()
+    (home / DEMO_MARKER).write_text("made by `torus demo`; safe to delete\n", "utf-8")
+    for suffix in ("", "-wal", "-shm"):
+        Path(str(p.db) + suffix).unlink(missing_ok=True)
+
+    counts = seed_demo(p.db, pack=None if args.no_pack else DEMO_PACK, reference=_reference(real))
+    with SQLiteBackend.open(p.db) as store:
+        data = build_data(store)
+        open_alerts = len(store.alerts(statuses=[AlertStatus.OPEN]))
+    out = home / "explorer.html"
+    out.write_text(render(data), encoding="utf-8")
+    print(
+        f"Demo graph in {home}: {counts['entities']} companies, {counts['theses']} theses,"
+        f" {open_alerts} open alert(s). The research is marked [demo]; your own graph"
+        " is untouched."
+    )
+    print(f"Explorer:  {out}")
+    env = f'$env:TORUS_HOME = "{home}"' if os.name == "nt" else f'export TORUS_HOME="{home}"'
+    print("To try commands on it, point TORUS_HOME at it first:")
+    print(f"  {env}")
+    print("  torus alerts list; torus audit; torus memo <thesis id>")
+    if not args.no_open:
+        webbrowser.open(out.resolve().as_uri())
+    return 0
+
+
 def _cmd_doctor(args: argparse.Namespace) -> int:
-    from torus.maintenance import Level, doctor, repair_duplicate_links, repair_search_index
+    from torus.config import ENV_HOME
+    from torus.maintenance import Level, doctor, fix, repair_duplicate_links, repair_search_index
 
     p = paths()
-    if args.repair:
+    if args.contact:
+        problem = _check_config_value("sec_contact", args.contact)
+        if problem:
+            print(problem, file=sys.stderr)
+            return 2
+    if args.repair and not args.fix:
         repair_search_index(p)
         closed = repair_duplicate_links(p)
         print(f"Search index rebuilt; {closed} duplicate link(s) closed.")
     checks = doctor(p)
+    if args.fix:
+        contact = args.contact
+        needs_email = {"watchers", "SEC reference"} & {
+            c.name for c in checks if c.level is not Level.OK
+        }
+        if not contact and needs_email and sys.stdin.isatty():
+            with SQLiteBackend.open(p.db) as store:
+                stored = store.get_setting("sec_contact") or os.environ.get(ENV_CONTACT)
+            if not stored:
+                try:
+                    contact = input(
+                        "Email for SEC EDGAR requests (the SEC asks for one; Enter to skip): "
+                    ).strip()
+                except EOFError:  # Windows reports NUL as a terminal
+                    print()
+                if contact and _check_config_value("sec_contact", contact):
+                    print("Not an email address; skipping.", file=sys.stderr)
+                    contact = ""
+        explicit_home = p.home if os.environ.get(ENV_HOME) else None
+        done = fix(p, checks, contact=contact or None, home=explicit_home)
+        for line in done:
+            print(f"[fix ] {line}")
+        if done:
+            print()
+            checks = doctor(p)
+        else:
+            print("Nothing Torus can fix by itself.\n")
     marks = {Level.OK: "ok  ", Level.INFO: "info", Level.WARN: "WARN", Level.FAIL: "FAIL"}
     for check in checks:
         print(f"[{marks[check.level]}] {check.name:<20} {check.detail}")
@@ -1167,12 +1249,27 @@ def build_parser() -> argparse.ArgumentParser:
     explore.add_argument("--no-open", action="store_true", help="write the file only")
     explore.set_defaults(func=_cmd_explore)
 
+    demo = sub.add_parser(
+        "demo", help="build a labelled demo graph in its own home and open the explorer"
+    )
+    demo.add_argument("--home", help="where to build it (default TORUS_HOME/demo)")
+    demo.add_argument("--no-pack", action="store_true", help="skip the semis starter pack")
+    demo.add_argument("--no-open", action="store_true", help="don't open a browser")
+    demo.set_defaults(func=_cmd_demo)
+
     doctor = sub.add_parser("doctor", help="check the installation and database")
     doctor.add_argument(
         "--repair",
         action="store_true",
         help="rebuild the search index and close duplicate links first",
     )
+    doctor.add_argument(
+        "--fix",
+        action="store_true",
+        help="fix what the checks flag: search index, duplicate links, SEC email and ticker"
+        " list, watcher schedule, Claude Desktop and Codex entries",
+    )
+    doctor.add_argument("--contact", help="email for SEC EDGAR requests (with --fix)")
     doctor.set_defaults(func=_cmd_doctor)
 
     export = sub.add_parser("export", help="back up the whole graph as JSON lines")

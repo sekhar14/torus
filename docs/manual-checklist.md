@@ -8,6 +8,7 @@ export TORUS_HOME=~/torus-checklist        # PowerShell: $env:TORUS_HOME = "$HOM
 pip install -e .
 torus setup --contact you@example.com
 torus doctor                               # Claude Desktop and Codex both "ok"
+torus demo                                 # opens the sample graph in the explorer
 ```
 
 ## Claude Desktop

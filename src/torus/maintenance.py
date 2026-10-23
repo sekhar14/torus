@@ -1,4 +1,4 @@
-"""Operational tools: ``torus doctor`` (health check), ``torus export`` and
+"""Operational tools: ``torus doctor`` (health check, ``--fix``), ``torus export`` and
 ``torus import`` (lossless JSON-lines backup and restore of a whole graph)."""
 
 from __future__ import annotations
@@ -8,7 +8,8 @@ import os
 import shutil
 import sqlite3
 import sys
-from collections.abc import Iterator
+import time
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -18,12 +19,13 @@ from torus import __version__
 from torus.config import Paths
 from torus.core.clock import SystemClock, to_ts
 from torus.core.models import AlertStatus, QueueStatus
-from torus.core.reference import SEC_TICKERS_FILENAME, ReferenceData
+from torus.core.reference import SEC_TICKERS_FILENAME, ReferenceData, fetch_sec_tickers
 from torus.core.store.migrate import latest_version
 from torus.core.store.sqlite import SQLiteBackend
 from torus.schedule import Scheduler
 
 EXPORT_FORMAT = 1
+REFERENCE_MAX_AGE_DAYS = 30  # new listings and ticker changes make an older list miss companies
 
 
 class Level(StrEnum):
@@ -126,14 +128,23 @@ def doctor(
             f" {counts['claims']} claim rows, {counts['theses']} theses, {counts['events']} events",
         )
 
-        reference = ReferenceData.load(p.reference / SEC_TICKERS_FILENAME)
-        add(
-            "SEC reference",
-            Level.OK if len(reference) else Level.WARN,
-            f"{len(reference)} companies"
-            if len(reference)
-            else "missing: run `torus init --refresh-reference --contact EMAIL`",
-        )
+        reference_file = p.reference / SEC_TICKERS_FILENAME
+        reference = ReferenceData.load(reference_file)
+        if not len(reference):
+            add(
+                "SEC reference",
+                Level.WARN,
+                "missing: run `torus init --refresh-reference --contact EMAIL`",
+            )
+        else:
+            age = int((time.time() - reference_file.stat().st_mtime) // 86400)
+            stale = age > REFERENCE_MAX_AGE_DAYS
+            add(
+                "SEC reference",
+                Level.WARN if stale else Level.OK,
+                f"{len(reference)} companies, downloaded {age} days ago"
+                + ("; refresh with `torus doctor --fix`" if stale else ""),
+            )
         targets = [e for e in store.watch_targets() if e.kind.value == "company"]
         contact = store.get_setting("sec_contact") or os.environ.get("TORUS_SEC_CONTACT")
         if targets and not contact:
@@ -186,6 +197,81 @@ def doctor(
     cx_level, cx_detail = inspect_codex(codex_config or codex_config_path())
     add("Codex", Level(cx_level), cx_detail)
     return checks
+
+
+def fix(
+    p: Paths,
+    checks: list[Check],
+    contact: str | None = None,
+    scheduler: Scheduler | None = None,
+    claude_config: Path | None = None,
+    codex_config: Path | None = None,
+    home: Path | None = None,
+    fetch: Callable[[Path, str], ReferenceData] | None = None,
+) -> list[str]:
+    """Fix what ``doctor`` flagged that Torus can fix by itself.
+
+    Returns one line per fix tried: what was done, or why it was skipped. ``home``
+    is written into app configs, as ``torus setup`` does when TORUS_HOME is set.
+    """
+    from torus.setup import (
+        claude_desktop_config_path,
+        codex_config_path,
+        configure_claude_desktop,
+        configure_codex,
+    )
+
+    flagged = {c.name for c in checks if c.level in (Level.WARN, Level.FAIL)}
+    done: list[str] = []
+    if "search index" in flagged:
+        repair_search_index(p)
+        done.append("search index: rebuilt")
+    if "duplicate links" in flagged:
+        done.append(f"duplicate links: {repair_duplicate_links(p)} closed")
+
+    with SQLiteBackend.open(p.db) as store:
+        stored = store.get_setting("sec_contact")
+        if contact and contact != stored:
+            store.set_setting("sec_contact", contact)
+            done.append(f"sec_contact: set to {contact}")
+        contact = contact or stored or os.environ.get("TORUS_SEC_CONTACT")
+    needs_email = "skipped, needs an email (pass --contact EMAIL)"
+    if "watchers" in flagged and not contact:
+        done.append(f"watchers: {needs_email}")
+    if "SEC reference" in flagged:
+        if not contact:
+            done.append(f"SEC reference: {needs_email}")
+        else:
+            try:
+                data = (fetch or fetch_sec_tickers)(p.reference / SEC_TICKERS_FILENAME, contact)
+                done.append(f"SEC reference: downloaded {len(data)} companies")
+            except (OSError, ValueError) as exc:
+                done.append(f"SEC reference: download failed ({exc})")
+    if "schedule" in flagged:
+        try:
+            done.append(f"schedule: {(scheduler or Scheduler(p.home)).install(1)}")
+        except (RuntimeError, ValueError) as exc:
+            done.append(f"schedule: not installed ({exc})")
+    if "Claude Desktop" in flagged:
+        path = claude_config or claude_desktop_config_path()
+        try:
+            configure_claude_desktop(path, home=home)
+            done.append(f"Claude Desktop: rewrote the torus entry in {path} (backup kept)")
+        except ValueError as exc:
+            done.append(f"Claude Desktop: {exc}; fix the file by hand")
+    if "Codex" in flagged:
+        path = codex_config or codex_config_path()
+        try:
+            codex = configure_codex(path, home=home)
+            done.append(
+                f"Codex: rewrote the torus entry and {len(codex.skills)} skills in {path.parent}"
+                if codex.updated
+                else f"Codex: reinstalled {len(codex.skills)} skills; kept your own"
+                " [mcp_servers.torus] entry"
+            )
+        except ValueError as exc:
+            done.append(f"Codex: {exc}; fix the file by hand")
+    return done
 
 
 # Each full-text index: its definition and how to refill it from its source table.

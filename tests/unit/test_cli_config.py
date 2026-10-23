@@ -186,3 +186,81 @@ def test_graph_explore_doctor_export_import(
     assert main(["import", str(dump)]) == 0
     capsys.readouterr()
     assert main(["graph", "paths", "ASML", "AMD"]) == 0
+
+
+def test_demo_builds_its_own_home(
+    torus_home: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from torus.core.store.sqlite import SQLiteBackend
+
+    _home_with_reference(torus_home)
+    opened: list[str] = []
+    monkeypatch.setattr("webbrowser.open", lambda url: opened.append(url) or True)
+    capsys.readouterr()
+
+    assert main(["demo"]) == 0
+    demo = torus_home / "demo"
+    out = capsys.readouterr().out
+    assert "1 open alert(s)" in out and str(demo) in out
+    assert opened == [(demo / "explorer.html").resolve().as_uri()]
+    with SQLiteBackend.open(demo / "torus.db") as store:
+        # The semis pack's 23 companies include the demo's 4: no duplicates.
+        assert store.counts()["entities"] == 23 and store.counts()["theses"] == 3
+    with SQLiteBackend.open(torus_home / "torus.db") as store:
+        assert store.counts()["claims"] == 0  # the real graph is untouched
+
+    assert main(["demo", "--no-open", "--no-pack"]) == 0  # rebuilds from scratch
+    with SQLiteBackend.open(demo / "torus.db") as store:
+        assert store.counts()["entities"] == 4 and store.counts()["theses"] == 3
+    assert len(opened) == 1
+
+    assert main(["demo", "--home", str(torus_home)]) == 2
+    other = tmp_path / "other"  # a home with a database `torus demo` didn't make
+    monkeypatch.setenv("TORUS_HOME", str(other))
+    main(["init"])
+    monkeypatch.setenv("TORUS_HOME", str(torus_home))
+    assert main(["demo", "--home", str(other)]) == 2
+    assert "isn't a demo graph" in capsys.readouterr().err
+
+
+def test_doctor_fix(
+    torus_home: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from test_automation import FakeRunner
+
+    from torus import maintenance, setup
+    from torus.core.reference import ReferenceData
+    from torus.schedule import Scheduler
+
+    # Keep the real app configs, scheduler and SEC out of it.
+    monkeypatch.setattr(setup, "claude_desktop_config_path", lambda: tmp_path / "c" / "cd.json")
+    monkeypatch.setattr(setup, "codex_config_path", lambda: tmp_path / "x" / "config.toml")
+    runner = FakeRunner()
+    monkeypatch.setattr(
+        maintenance, "Scheduler", lambda home: Scheduler(home, platform="win32", runner=runner)
+    )
+    fetched: list[str] = []
+
+    def fetch(dest: Path, contact: str) -> ReferenceData:
+        fetched.append(contact)
+        shutil.copy(FIXTURES / "sec_company_tickers.json", dest)
+        return ReferenceData.load(dest)
+
+    monkeypatch.setattr(maintenance, "fetch_sec_tickers", fetch)
+    main(["init"])
+    capsys.readouterr()
+
+    assert main(["doctor", "--fix", "--contact", "nope"]) == 2
+    assert main(["doctor", "--fix", "--contact", "me@example.com"]) == 0
+    out = capsys.readouterr().out
+    assert "[fix ] sec_contact: set to me@example.com" in out
+    assert "[fix ] SEC reference: downloaded" in out
+    assert fetched == ["me@example.com"]
+    assert main(["doctor", "--fix"]) == 0
+    assert "Nothing Torus can fix by itself." in capsys.readouterr().out
