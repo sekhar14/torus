@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.4.0
+
+Alerts reach you without opening a chat: desktop notifications, a digest, and delivery to your
+own webhook or email.
+
+- **Desktop notifications.** When a watcher run raises a strong alert, Torus shows a
+  notification, one per thesis and at most three per run. It uses a toast on Windows,
+  Notification Center on macOS and `notify-send` on Linux. Only alerts from the last 24 hours
+  count, so upgrading doesn't notify old ones. `notify` is `strong` (default), `moderate` or
+  `off`; `torus notify test` checks it works; `torus watch run --no-notify` skips it.
+- **`torus digest`.** What happened since a date (`--since 12h`, `1d`, `2w` or a date): new
+  alerts by thesis, thesis status and confidence changes, theses coming due, audit counts,
+  scorecard moves and activity. Written as Markdown and HTML to `TORUS_HOME/digests`; `--json`
+  prints it instead. The new MCP tool `digest` gives Claude the same, so "what happened this
+  week?" works in every app, and `/torus:status` uses it for questions about a period.
+- **Sending the digest.** `digest` = `daily` or `weekly` (at `digest_hour`, on
+  `digest_weekday`) sends it from the hourly watcher run. Destinations:
+  - `digest_webhook`: Slack, Discord, ntfy or any JSON endpoint, recognised from the URL. The
+    URL is shown masked and left out of `torus export`.
+  - Email through your SMTP server (`digest_email_to`, `smtp_host`, `smtp_user`). Encrypted
+    connections only (STARTTLS on 587, TLS on 465). The password comes from
+    `TORUS_SMTP_PASSWORD` or a file only you can read, saved by `torus digest email-password`;
+    it's never stored in the database.
+
+  `torus digest --send` sends now and `torus digest test-send` checks each destination. An
+  empty digest isn't sent unless `digest_send_empty on`.
+- **Doctor.** New `notifications` and `digest` checks: the notification tool, where the digest
+  goes, when it was last sent and the last error.
+- **Under the hood.** Schema v13 (migration 0013: `alerts.notified_at`). The memo's
+  Markdown-to-HTML renderer moved to `torus.core.mdhtml` and is shared with the digest (memo
+  output unchanged). The MCP server has 45 tools (33 in the `analyst` toolset).
+
 ## 0.3.1
 
 Easier to try, and to fix when something's off.
