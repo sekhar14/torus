@@ -1,6 +1,6 @@
 [project]
 name = "torus-kg"
-version = "0.3.1"
+version = "0.4.0"
 description = "Stock research memory for Claude Code, Claude Desktop and Codex: equity research, investment theses and SEC filing alerts in a local knowledge graph"
 readme = "README.md"
 keywords = ["stock-research", "equity-research", "investment-research", "investing", "stocks", "sec-edgar", "knowledge-graph", "claude-code", "mcp"]

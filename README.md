@@ -4,7 +4,8 @@
 memory for your equity research. Before it answers, Claude sees what you already know about a
 company: your theses, the sourced facts behind them, its suppliers, customers and competitors,
 and the ideas you ruled out. New research builds on the old, and every new fact is saved with
-its source. When a new SEC filing or news story threatens a thesis, Torus warns you.
+its source. When a new SEC filing or news story threatens a thesis, Torus warns you: on your
+desktop as it happens, and in a daily or weekly digest by email, Slack, Discord or ntfy.
 
 ![Torus graph explorer: the semiconductor value chain with NVIDIA, Micron and AMD theses, an alert from a TSMC filing, and the time slider](https://raw.githubusercontent.com/sekhar14/torus/main/docs/images/explorer-overview.png)
 
@@ -45,6 +46,7 @@ one and pick up in another.
 | "Torus recorded ..." receipt after each turn | Yes | Yes | Yes |
 | Workflows: onboard, review alerts, challenge, memo... | Prompts in the "+" menu | Torus skills | `/torus:` commands |
 | Filing and news alerts, audit, scorecard, memos, explorer | Yes | Yes | Yes |
+| Desktop notifications and the digest (they come from the watchers, not the app) | Yes | Yes | Yes |
 | Background Haiku subagents (mapper, curator, challenger) | No: the same steps run in the chat | No: the same steps run in the chat | Yes |
 
 **Claude Desktop**
@@ -170,6 +172,7 @@ You don't need to remember commands; ask in plain words and Claude uses the righ
 | "What changed in TSMC's latest 20-F risk factors?" | Torus lists the new, dropped and reworded sentences against last year's filing |
 | "Add this earnings call transcript to Torus" | The transcript becomes sourced claims linked to the theses it bears on |
 | "Any news that affects my theses?" | Open alerts, each with the path that explains it, judged one thesis at a time |
+| "What happened this week?" | The digest: new alerts by thesis, status and confidence changes, theses coming due, scorecard moves |
 | "What happens to my theses if TSMC's Arizona fab is delayed a year?" | Every thesis the event would reach, through which links, and the likely direction |
 | "Poke holes in my Micron thesis" | A skeptic subagent researches the counter-case; you approve any risks it proposes |
 | "Is my research still current?" | The audit: expired assumptions, theses past their horizon, single-source claims, conflicts |
@@ -194,10 +197,10 @@ You don't need to remember commands; ask in plain words and Claude uses the righ
 | `/torus:distill` | Have the Haiku curator add past sessions' findings to the graph |
 | `/torus:explore` | Open the visual graph explorer |
 
-Behind them, the MCP server gives Claude 44 tools, from `brief`, `recall` and `record_claim` to
-`filing_diff`, `whatif` and `scorecard`. Claude Desktop and Codex see 32 of them by default (the
-`analyst` toolset): the queue and low-level graph tools are hidden. Set `TORUS_TOOLSET=full` in
-the server's `env` to show them all.
+Behind them, the MCP server gives Claude 45 tools, from `brief`, `recall` and `record_claim` to
+`filing_diff`, `whatif`, `digest` and `scorecard`. Claude Desktop and Codex see 33 of them by
+default (the `analyst` toolset): the queue and low-level graph tools are hidden. Set
+`TORUS_TOOLSET=full` in the server's `env` to show them all.
 
 ## Claude Desktop and Codex in detail
 
@@ -351,7 +354,9 @@ When research re-records a starter link, it becomes yours.
 - **Prices**: daily closes for theses on the scorecard.
 
 Each new item becomes an event. Torus then walks the graph (suppliers, customers, competitors)
-and opens alerts on theses it may affect. Review them with `/torus:review`.
+and opens alerts on theses it may affect. Review them with `/torus:review`. At the end of the
+pass, strong new alerts show up as [desktop notifications](#alerts-that-reach-you), and a
+scheduled digest goes out if one is due.
 
 ```bash
 torus watch add NVDA                            # optional: onboarded companies and open theses' companies are watched automatically
@@ -392,6 +397,98 @@ torus alerts mutes                              # list mutes; torus alerts unmut
 ```
 
 `/torus:review` suggests a mute when a thesis keeps getting the same kind of unrelated alert.
+
+## Alerts that reach you
+
+The watchers run every hour, but an alert is no use if you only see it the next time you open a
+chat. Torus tells you in two ways.
+
+### Desktop notifications
+
+When `torus watch run` raises a **strong** alert, you get a notification:
+
+> **Torus: strong alert on NVIDIA data-center growth is supply-bound**
+> TSMC 8-K: CoWoS capacity expansion delayed (and 1 more)
+
+- One notification per thesis, at most three per pass. If more theses are hit, the third
+  sums up the rest.
+- Only alerts from the last 24 hours, so upgrading or turning notifications on never replays
+  old ones.
+- Windows shows a toast, macOS uses Notification Center (`osascript`), Linux uses `notify-send`.
+  Nothing extra to install. On Linux the cron job finds your desktop session on its own.
+
+```bash
+torus notify test                    # check that notifications show up on this machine
+torus config set notify moderate     # strong (default), moderate or off
+torus watch run --no-notify          # one pass without notifications
+```
+
+`torus doctor` checks that the platform's notification tool is there.
+
+### The digest
+
+`torus digest` writes what happened since a date, most urgent first:
+
+1. **New alerts**, grouped by thesis, with strength, score, link and whether they were judged
+2. **Thesis changes**: status changes and confidence moves of 10 points or more
+3. **Coming due**: open theses past their horizon or due within 30 days
+4. **Research health**: audit counts and the top high findings
+5. **Scorecard**: the biggest moves since then, in each thesis's direction
+6. **Activity**: claims, theses and events recorded
+
+```bash
+torus digest                         # the last day, as Markdown and HTML in TORUS_HOME/digests
+torus digest --since 2w --open       # 12h, 1d, 2w or a date (YYYY-MM-DD); open the HTML
+torus digest --json                  # the same data as JSON
+```
+
+In any app, ask *"what happened this week?"* and Claude calls the `digest` tool.
+
+### Sending the digest
+
+Nothing is sent until you set a destination. Then pick a schedule; the hourly watcher run sends
+the digest when it's due, so there's no second scheduled task.
+
+```bash
+torus config set digest daily                # off (default), daily or weekly
+torus config set digest_hour 8               # local time (default 8)
+torus config set digest_weekday mon          # for weekly (default mon)
+```
+
+**A webhook** (Slack, Discord, ntfy or anything that takes JSON):
+
+```bash
+torus config set digest_webhook https://hooks.slack.com/services/...
+torus config set digest_webhook https://ntfy.sh/your-private-topic   # push to your phone with the ntfy app
+```
+
+The format comes from the address: Slack gets plain text, Discord and ntfy get Markdown, and
+any other URL gets the digest as JSON. For a self-hosted ntfy server, set
+`digest_webhook_format ntfy`. Long digests are cut at a whole section, with a pointer to the full
+file. Webhook URLs contain a secret token, so Torus shows them masked
+(`https://hooks.slack.com/.../AbCd`) and leaves them out of `torus export`.
+
+**Email** through your own SMTP server, with Gmail as the example:
+
+```bash
+torus config set digest_email_to you@example.com
+torus config set smtp_host smtp.gmail.com
+torus config set smtp_user you@gmail.com
+torus digest email-password                  # asks for the password (for Gmail, an app password)
+```
+
+The password is never stored in the database. `torus digest email-password` saves it to
+`TORUS_HOME/secrets/smtp_password`, a file only you can read, or you can set
+`TORUS_SMTP_PASSWORD` instead. Torus only sends over an encrypted connection: STARTTLS on port 587
+(the default) or TLS on port 465.
+
+```bash
+torus digest test-send                       # a short test message to each destination
+torus digest --send                          # send now: everything since the last digest sent
+```
+
+A digest with nothing new isn't sent (`digest_send_empty on` changes that). `torus doctor` shows
+the schedule, where the digest goes, when it was last sent and the last error.
 
 ## Keeping the research honest
 
@@ -450,7 +547,8 @@ short summary from what the memo says.
 ## Automation
 
 - **Watchers on a schedule:** `torus schedule install` (see above). `torus doctor` warns when
-  companies are watched but nothing runs the watchers.
+  companies are watched but nothing runs the watchers. Each run also sends the notifications
+  and the scheduled digest ([Alerts that reach you](#alerts-that-reach-you)).
 - **Distilling sessions:** research sessions are queued when they end, and the Haiku curator adds
   what Claude didn't record. With `auto_distill` at `ask` (the default), Claude offers to run
   `/torus:distill` when sessions are waiting. Set it to `on` and a background curator runs
@@ -470,10 +568,22 @@ short summary from what the memo says.
 | `filing_diffs` | `on` | Summarise risk-factor changes in new 10-K/10-Q/20-F events |
 | `benchmark` | `SPY` | What the scorecard measures theses against |
 | `price_source` | `yahoo` | `yahoo` or `none` |
+| `notify` | `strong` | Desktop notifications for new alerts: `strong`, `moderate` or `off` |
+| `digest` | `off` | Send a digest from the watcher runs: `off`, `daily` or `weekly` |
+| `digest_hour` | `8` | Hour (0-23, local time) the digest goes out |
+| `digest_weekday` | `mon` | Day of a weekly digest (`mon` to `sun`) |
+| `digest_send_empty` | `off` | Send a digest even when nothing is new |
+| `digest_webhook` | | Slack, Discord, ntfy or JSON webhook URL (shown masked, not exported) |
+| `digest_webhook_format` | `auto` | `auto` (from the URL), `slack`, `discord`, `ntfy` or `json` |
+| `digest_email_to` | | Address(es) to email the digest to, comma-separated |
+| `digest_email_from` | `smtp_user` | From address |
+| `smtp_host` | | SMTP server |
+| `smtp_port` | `587` | `587` with STARTTLS, or `465` with TLS |
+| `smtp_user` | | SMTP login; the password goes in with `torus digest email-password` |
 
 ## What leaves your machine
 
-Torus keeps your research local. It only makes these requests, all of them reads:
+Torus keeps your research local. It reads from these:
 
 - **SEC EDGAR** (`sec.gov`): the ticker list, watched companies' filing lists, and filings Claude
   reads or the watcher diffs. Your `sec_contact` email is sent as the User-Agent, as the SEC
@@ -482,12 +592,20 @@ Torus keeps your research local. It only makes these requests, all of them reads
 - **Yahoo Finance**, for daily closes of tracked tickers and their benchmark, if any thesis is on
   the scorecard and `price_source` isn't `none`.
 
+And it sends research out only where you tell it to:
+
+- **Your webhook** (`digest_webhook`), if you set one: the digest's text, which includes thesis
+  titles, alert and event titles, audit findings and scorecard moves.
+- **Your SMTP server** (`smtp_host`), if you set up email: the same digest, to `digest_email_to`.
+
+Desktop notifications stay on your machine.
+
 Claude's own web research goes through the app you use, as usual.
 
 ## Maintenance
 
 ```bash
-torus doctor                  # health check (schema, integrity, search index, hooks, watchers, schedule)
+torus doctor                  # health check (schema, integrity, search index, hooks, watchers, schedule, notifications, digest)
 torus doctor --fix            # fix what it flags (see below)
 torus doctor --repair         # only rebuild the search index and close duplicate links
 torus export                  # back up everything to TORUS_HOME/exports/*.jsonl
