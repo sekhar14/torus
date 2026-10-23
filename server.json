@@ -1,0 +1,49 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.sekhar14/torus",
+  "title": "Torus",
+  "description": "Stock research memory for Claude: theses, sourced claims and SEC filing alerts in a local graph",
+  "version": "0.4.1",
+  "websiteUrl": "https://github.com/sekhar14/torus",
+  "repository": {
+    "url": "https://github.com/sekhar14/torus",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "torus-kg",
+      "version": "0.4.1",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "serve"
+        }
+      ],
+      "environmentVariables": [
+        {
+          "name": "TORUS_HOME",
+          "description": "Folder for the research graph and caches (default ~/.torus)",
+          "format": "filepath",
+          "isRequired": false
+        },
+        {
+          "name": "TORUS_TOOLSET",
+          "description": "Which tools to expose: analyst hides queue and maintenance tools (default full)",
+          "choices": ["analyst", "full"],
+          "isRequired": false
+        },
+        {
+          "name": "TORUS_CAPTURE_MODE",
+          "description": "How eagerly research is recorded",
+          "choices": ["live", "balanced", "curator"],
+          "isRequired": false
+        }
+      ]
+    }
+  ]
+}
