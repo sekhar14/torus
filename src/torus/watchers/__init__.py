@@ -16,6 +16,7 @@ from pathlib import Path
 
 from torus.core.clock import Clock, SystemClock
 from torus.core.detect import EntityDetector
+from torus.core.notify import NotifyResult, Sender, notify_pending
 from torus.core.reference import ReferenceData
 from torus.core.store.base import Backend
 from torus.watchers.edgar import EdgarWatcher, Filing, SourceReport
@@ -32,6 +33,7 @@ __all__ = ["SourceReport", "WatchReport", "run_watchers", "sec_contact"]
 @dataclass
 class WatchReport:
     sources: list[SourceReport] = field(default_factory=list)
+    notify: NotifyResult | None = None  # None: notifications not attempted
 
     @property
     def new_events(self) -> int:
@@ -60,6 +62,7 @@ def run_watchers(
     rss: bool = True,
     home: Path | None = None,
     prices: bool = True,
+    notifier: Sender | None = None,
 ) -> WatchReport:
     """One pass over every watch target and feed. One failing source never stops
     the others; its error is reported instead.
@@ -67,7 +70,8 @@ def run_watchers(
     With ``home``, new 10-K/10-Q events also summarise what changed in the risk
     factors since the previous filing (setting ``filing_diffs``, on by default).
     With ``prices``, closes for theses tracked on the scorecard are refreshed
-    (setting ``price_source``: yahoo by default, or none)."""
+    (setting ``price_source``: yahoo by default, or none). With ``notifier``, new
+    alerts strong enough for the ``notify`` setting are shown on the desktop."""
     fetcher = fetcher or UrllibFetcher()
     clock = clock or SystemClock()
     report = WatchReport()
@@ -114,6 +118,9 @@ def run_watchers(
                 report.sources.append(
                     _safely(rss_watcher.check, url, f"rss:{feed['name'] or url}", feed["name"])
                 )
+
+    if notifier is not None:
+        report.notify = notify_pending(store, notifier, clock.now())
     return report
 
 

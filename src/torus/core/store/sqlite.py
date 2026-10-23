@@ -1815,6 +1815,26 @@ class SQLiteBackend:
         sql += " ORDER BY score DESC, created_at, id"
         return [_alert(r) for r in self._all(sql, params)]
 
+    def alerts_to_notify(self, min_score: float, since: datetime) -> list[Alert]:
+        """Open alerts not notified yet, scoring at least ``min_score``, created since
+        ``since``; highest score first."""
+        rows = self._all(
+            "SELECT * FROM alerts WHERE status = ? AND notified_at IS NULL AND score >= ?"
+            " AND created_at >= ? ORDER BY score DESC, created_at, id",
+            (AlertStatus.OPEN.value, min_score, to_ts(since)),
+        )
+        return [_alert(r) for r in rows]
+
+    def mark_notified(self, alert_ids: Sequence[str]) -> None:
+        if not alert_ids:
+            return
+        with self.transaction():
+            self._conn.execute(
+                f"UPDATE alerts SET notified_at = ? WHERE id IN ({_placeholders(len(alert_ids))})"
+                " AND notified_at IS NULL",
+                (self._now(), *alert_ids),
+            )
+
     def resolve_alert(
         self,
         alert_id: str,
@@ -2566,4 +2586,5 @@ def _alert(row: sqlite3.Row) -> Alert:
         materiality=row["materiality"],
         trigger_match=row["trigger_match"],
         matched_trigger=row["matched_trigger"],
+        notified_at=from_ts_opt(row["notified_at"]),
     )

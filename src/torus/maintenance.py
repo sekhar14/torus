@@ -19,9 +19,11 @@ from torus import __version__
 from torus.config import Paths
 from torus.core.clock import SystemClock, to_ts
 from torus.core.models import AlertStatus, QueueStatus
+from torus.core.notify import NOTIFY_DEFAULT, NOTIFY_SETTING
 from torus.core.reference import SEC_TICKERS_FILENAME, ReferenceData, fetch_sec_tickers
 from torus.core.store.migrate import latest_version
 from torus.core.store.sqlite import SQLiteBackend
+from torus.notify import DesktopSender
 from torus.schedule import Scheduler
 
 EXPORT_FORMAT = 1
@@ -50,6 +52,7 @@ def doctor(
     scheduler: Scheduler | None = None,
     claude_config: Path | None = None,
     codex_config: Path | None = None,
+    notifier: DesktopSender | None = None,
 ) -> list[Check]:
     from torus.setup import (
         claude_desktop_config_path,
@@ -166,6 +169,17 @@ def doctor(
                 "schedule",
                 Level.OK if schedule else Level.WARN,
                 schedule or "nothing runs the watchers; set it up with `torus schedule install`",
+            )
+
+        level = store.get_setting(NOTIFY_SETTING) or NOTIFY_DEFAULT
+        if level == "off":
+            add("notifications", Level.INFO, "off (`torus config set notify strong` to turn on)")
+        else:
+            works, detail = (notifier or DesktopSender()).check()
+            add(
+                "notifications",
+                Level.OK if works else Level.WARN,
+                f"{level} alerts, via {detail}" if works else f"{level} alerts, but {detail}",
             )
 
         parked = store.queue_items(statuses=[QueueStatus.PARKED])
