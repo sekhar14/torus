@@ -140,6 +140,19 @@
               "default": null,
               "title": "Materiality"
             },
+            "notified_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Notified At"
+            },
             "paths": {
               "items": {
                 "$ref": "#/$defs/ImpactPath"
@@ -2387,6 +2400,19 @@
               ],
               "default": null,
               "title": "Materiality"
+            },
+            "notified_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Notified At"
             },
             "paths": {
               "items": {
@@ -5668,6 +5694,19 @@
               ],
               "default": null,
               "title": "Materiality"
+            },
+            "notified_at": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Notified At"
             },
             "paths": {
               "items": {

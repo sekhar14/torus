@@ -386,6 +386,7 @@ class Alert(_Record):
     materiality: float | None = None
     trigger_match: float | None = None
     matched_trigger: str | None = None
+    notified_at: datetime | None = None  # desktop notification sent (or tried)
 
 
 class Outcome(StrEnum):

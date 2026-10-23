@@ -1,5 +1,5 @@
 """Command line interface: ``torus init | setup | status | resolve | detect | serve | hook |
-watch | schedule | feed | alerts | onboard | audit | whatif | memo | scorecard | config |
+watch | notify | schedule | feed | alerts | onboard | audit | whatif | memo | scorecard | config |
 graph | explore | demo | doctor | export | import``."""
 
 from __future__ import annotations
@@ -269,6 +269,7 @@ CONFIG_KEYS = {
     "filing_diffs": "on (default) or off: summarise risk-factor changes in 10-K/10-Q events",
     "benchmark": "ticker theses are measured against on the scorecard (default SPY)",
     "price_source": "yahoo (default) or none: where the scorecard gets daily closes",
+    "notify": "strong (default), moderate or off: desktop notifications for new alerts",
 }
 
 
@@ -288,6 +289,8 @@ def _check_config_value(key: str, value: str) -> str | None:
         return f"{key} must be on or off."
     if key == "price_source" and value not in ("yahoo", "none"):
         return "price_source must be yahoo or none."
+    if key == "notify" and value not in ("strong", "moderate", "off"):
+        return "notify must be strong, moderate or off."
     return None
 
 
@@ -296,6 +299,7 @@ def _open_store(p: Paths) -> SQLiteBackend:
 
 
 def _cmd_watch_run(args: argparse.Namespace) -> int:
+    from torus.notify import DesktopSender
     from torus.watchers import run_watchers
 
     p = paths()
@@ -306,9 +310,13 @@ def _cmd_watch_run(args: argparse.Namespace) -> int:
             edgar=not args.no_edgar,
             rss=not args.no_rss,
             home=p.home,
+            notifier=None if args.no_notify else DesktopSender(),
         )
     if args.json:
-        print(json.dumps([asdict(s) for s in report.sources], indent=2))
+        rows = [asdict(s) for s in report.sources]
+        if report.notify is not None:
+            rows.append({"source": "notify", **asdict(report.notify)})
+        print(json.dumps(rows, indent=2))
     else:
         for s in report.sources:
             status = (
@@ -320,8 +328,32 @@ def _cmd_watch_run(args: argparse.Namespace) -> int:
                 )
             )
             print(f"{s.source:<40} {status}")
+        if report.notify is not None and (report.notify.alerts or report.notify.errors):
+            n = report.notify
+            status = f"{n.sent} notification(s) for {n.alerts} alert(s)"
+            status += "".join(f"; failed: {e}" for e in n.errors)
+            print(f"{'notify':<40} {status}")
         print(f"Total: {report.new_events} new event(s), {report.alerts} alert(s)")
     return 1 if report.errors else 0
+
+
+def _cmd_notify_test(args: argparse.Namespace) -> int:
+    from torus.core.notify import Notification, NotifyError
+    from torus.notify import DesktopSender
+
+    sender = DesktopSender()
+    try:
+        sender.send(
+            Notification(
+                "Torus: test notification",
+                "Strong alerts on your theses will show up like this.",
+            )
+        )
+    except NotifyError as exc:
+        print(f"Notification failed: {exc}", file=sys.stderr)
+        return 1
+    print("Sent a test notification. If none appeared, check the system's notification settings.")
+    return 0
 
 
 def _cmd_watch_add(args: argparse.Namespace) -> int:
@@ -1103,6 +1135,7 @@ def build_parser() -> argparse.ArgumentParser:
     run = watch_sub.add_parser("run", help="check EDGAR and feeds once (for a scheduler)")
     run.add_argument("--no-edgar", action="store_true")
     run.add_argument("--no-rss", action="store_true")
+    run.add_argument("--no-notify", action="store_true", help="no desktop notifications")
     run.add_argument("--json", action="store_true", help="machine-readable output")
     run.set_defaults(func=_cmd_watch_run)
     add = watch_sub.add_parser("add", help="watch a company (ticker, name, CIK or id)")
@@ -1114,6 +1147,12 @@ def build_parser() -> argparse.ArgumentParser:
     remove.set_defaults(func=_cmd_watch_remove)
     watch_list = watch_sub.add_parser("list", help="what is watched, and why")
     watch_list.set_defaults(func=_cmd_watch_list)
+
+    notify = sub.add_parser("notify", help="desktop notifications for new alerts")
+    notify_sub = notify.add_subparsers(dest="notify_command", required=True)
+    notify_sub.add_parser("test", help="show a test notification").set_defaults(
+        func=_cmd_notify_test
+    )
 
     schedule = sub.add_parser("schedule", help="run the watchers on a schedule")
     schedule_sub = schedule.add_subparsers(dest="schedule_command", required=True)
