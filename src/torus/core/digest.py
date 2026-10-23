@@ -323,3 +323,72 @@ def save_digest(d: Digest, directory: Path) -> tuple[Path, Path]:
     markdown.write_text(d.markdown or render_markdown(d), "utf-8", newline="\n")
     page.write_text(render_html(d), "utf-8", newline="\n")
     return markdown, page
+
+
+# -- plain text and size limits (webhooks, email) --------------------------------------
+
+_MD_LINK = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+_MD_BOLD = re.compile(r"\*\*(.+?)\*\*")
+_MD_ITALIC = re.compile(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)")
+
+
+def truncate_markdown(markdown: str, limit: int, note: str) -> str:
+    """Keep whole sections (``## `` blocks) while the text fits in ``limit``
+    characters, then add ``note``. The title and first section are always kept,
+    cut mid-text if they alone are too long."""
+    if len(markdown) <= limit:
+        return markdown
+    parts = re.split(r"(?m)^(?=## )", markdown)
+    kept = parts[0]
+    for part in parts[1:]:
+        if len(kept) + len(part) + len(note) + 2 > limit:
+            break
+        kept += part
+    if kept == parts[0] and len(parts) > 1:
+        kept += parts[1]
+    room = max(limit - len(note) - 2, 0)
+    return kept[:room].rstrip() + "\n\n" + note
+
+
+def to_text(markdown: str) -> str:
+    """Markdown as written by ``render_markdown``, as plain text."""
+    lines = []
+    for line in markdown.splitlines():
+        if line == "---":
+            continue
+        line = re.sub(r"^#{1,2} ", "", line)
+        line = _MD_LINK.sub(r"\1 <\2>", line)
+        line = _MD_BOLD.sub(r"\1", line)
+        lines.append(_MD_ITALIC.sub(r"(\1)", line))
+    return "\n".join(lines).strip() + "\n"
+
+
+# -- when a scheduled digest is due ----------------------------------------------------
+
+WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+PERIODS = {"daily": timedelta(days=1), "weekly": timedelta(weeks=1)}
+
+
+def latest_slot(schedule: str, hour: int, weekday: str, now_local: datetime) -> datetime:
+    """The most recent scheduled time at or before ``now_local`` (naive local time)."""
+    slot = now_local.replace(hour=hour, minute=0, second=0, microsecond=0)
+    if schedule == "weekly":
+        slot -= timedelta(days=(slot.weekday() - WEEKDAYS.index(weekday)) % 7)
+    while slot > now_local:
+        slot -= PERIODS[schedule]
+    return slot
+
+
+def digest_due(
+    schedule: str, hour: int, weekday: str, last_sent: datetime | None, now: datetime
+) -> bool:
+    """Whether a ``daily`` or ``weekly`` digest should go out now. Compared in local
+    wall-clock time, so the hour holds across daylight-saving changes. A digest never
+    sent is due; so is one whose last send looks to be in the future (clock change)."""
+    if schedule not in PERIODS:
+        return False
+    if last_sent is None or last_sent > now:
+        return True
+    now_local = now.astimezone().replace(tzinfo=None)
+    sent_local = last_sent.astimezone().replace(tzinfo=None)
+    return sent_local < latest_slot(schedule, hour, weekday, now_local)

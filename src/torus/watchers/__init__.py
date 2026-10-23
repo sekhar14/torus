@@ -13,6 +13,7 @@ import os
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from torus.core.clock import Clock, SystemClock
 from torus.core.detect import EntityDetector
@@ -27,6 +28,9 @@ SEC_CONTACT_SETTING = "sec_contact"
 FILING_DIFFS_SETTING = "filing_diffs"  # on (default) | off
 ENV_SEC_CONTACT = "TORUS_SEC_CONTACT"
 
+if TYPE_CHECKING:  # torus.deliver imports the digest, which imports the price source here
+    from torus.deliver import Delivery, DeliveryResult
+
 __all__ = ["SourceReport", "WatchReport", "run_watchers", "sec_contact"]
 
 
@@ -34,6 +38,7 @@ __all__ = ["SourceReport", "WatchReport", "run_watchers", "sec_contact"]
 class WatchReport:
     sources: list[SourceReport] = field(default_factory=list)
     notify: NotifyResult | None = None  # None: notifications not attempted
+    digest: DeliveryResult | None = None  # None: no scheduled digest was due
 
     @property
     def new_events(self) -> int:
@@ -63,6 +68,7 @@ def run_watchers(
     home: Path | None = None,
     prices: bool = True,
     notifier: Sender | None = None,
+    delivery: Delivery | None = None,
 ) -> WatchReport:
     """One pass over every watch target and feed. One failing source never stops
     the others; its error is reported instead.
@@ -71,7 +77,9 @@ def run_watchers(
     factors since the previous filing (setting ``filing_diffs``, on by default).
     With ``prices``, closes for theses tracked on the scorecard are refreshed
     (setting ``price_source``: yahoo by default, or none). With ``notifier``, new
-    alerts strong enough for the ``notify`` setting are shown on the desktop."""
+    alerts strong enough for the ``notify`` setting are shown on the desktop. With
+    ``delivery`` and ``home``, a daily or weekly digest that is due is written and sent
+    (setting ``digest``)."""
     fetcher = fetcher or UrllibFetcher()
     clock = clock or SystemClock()
     report = WatchReport()
@@ -121,6 +129,10 @@ def run_watchers(
 
     if notifier is not None:
         report.notify = notify_pending(store, notifier, clock.now())
+    if delivery is not None and home is not None:
+        from torus.deliver import send_scheduled
+
+        report.digest = send_scheduled(store, home, clock.now(), delivery)
     return report
 
 
