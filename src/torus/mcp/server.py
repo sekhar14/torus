@@ -555,10 +555,20 @@ def build_server(tools: TorusTools) -> MCPServer:
     @guard
     def timeline_tool(
         entity: EntityRef,
-        since: datetime | None = None,
-        until: datetime | None = None,
+        since: Annotated[
+            datetime | None,
+            Field(description="Only changes at or after this time (UTC if no zone); omit for all"),
+        ] = None,
+        until: Annotated[
+            datetime | None,
+            Field(description="Only changes before this time (UTC if no zone); omit for now"),
+        ] = None,
     ) -> ChangeLog:
-        """Chronological claims and thesis changes for one entity."""
+        """History of one entity, oldest first: claims recorded, corrected or
+        retracted about it, theses on it created or changed, and events (filings,
+        news) that name it. Each change has a time, kind, object id and one-line
+        summary. Use it to see how the view on a company evolved; use `what_changed`
+        for the whole graph and `get_entity` for its current links."""
         return timeline(store, tools.entity(entity).id, _aware(since), _aware(until))
 
     @server.tool(name="what_changed", annotations=READ_ONLY)
@@ -631,22 +641,55 @@ def build_server(tools: TorusTools) -> MCPServer:
     @server.tool(annotations=WRITE)
     @guard
     def record_claim(
-        text: Annotated[str, Field(description="One atomic, self-contained statement")],
-        claim_type: ClaimType,
+        text: Annotated[
+            str,
+            Field(
+                description="One atomic, self-contained statement, e.g. "
+                "'TSMC supplies over 90% of NVIDIA's data-center GPU wafers'"
+            ),
+        ],
+        claim_type: Annotated[
+            ClaimType,
+            Field(
+                description="fact or metric (must cite evidence_ids), inference (evidence "
+                "or derived_from), forecast, or opinion"
+            ),
+        ],
         confidence: Confidence,
-        entities: Annotated[list[str], Field(description="Entities the claim is about")] = [],  # noqa: B006
+        entities: Annotated[
+            list[str],
+            Field(
+                description="Entities the claim is about (ticker, name or id); they are resolved"
+            ),
+        ] = [],  # noqa: B006
         mentioned: Annotated[
             list[str], Field(description="Entities only mentioned in passing")
         ] = [],  # noqa: B006
-        evidence_ids: list[str] = [],  # noqa: B006
-        contradicting_evidence_ids: list[str] = [],  # noqa: B006
+        evidence_ids: Annotated[
+            list[str], Field(description="Supporting source ids from record_evidence")
+        ] = [],  # noqa: B006
+        contradicting_evidence_ids: Annotated[
+            list[str], Field(description="Source ids from record_evidence that cut against it")
+        ] = [],  # noqa: B006
         derived_from: Annotated[
             list[str], Field(description="Claim ids an inference builds on")
         ] = [],  # noqa: B006
-        valid_from: datetime | None = None,
-        valid_to: datetime | None = None,
+        valid_from: Annotated[
+            datetime | None,
+            Field(description="When the statement became true (UTC if no zone); omit if unknown"),
+        ] = None,
+        valid_to: Annotated[
+            datetime | None,
+            Field(description="When it stopped being true; omit if it still holds"),
+        ] = None,
     ) -> Claim:
-        """Record a finding. Facts and metrics need evidence_ids."""
+        """Save one finding about one or more entities, tied to its sources.
+
+        Record the source first with `record_evidence` and pass its id. A fact or
+        metric without supporting evidence_ids is rejected, as is an inference with
+        neither evidence nor derived_from. Returns the new claim with its id, which
+        theses (`record_thesis`) and relations (`record_relation`) can cite. To fix
+        an existing claim use `supersede_claim`, not a second record_claim."""
         links = [
             ClaimEntity(entity_id=tools.entity(e).id, role=ClaimEntityRole.SUBJECT)
             for e in entities
@@ -733,22 +776,43 @@ def build_server(tools: TorusTools) -> MCPServer:
     @server.tool(annotations=WRITE)
     @guard
     def record_thesis(
-        title: str,
-        statement: str,
-        stance: Stance,
+        title: Annotated[
+            str, Field(description="Short name, e.g. 'NVIDIA stays supply-bound through FY27'")
+        ],
+        statement: Annotated[str, Field(description="The investment view in one or two sentences")],
+        stance: Annotated[
+            Stance, Field(description="bullish, bearish, neutral, or n/a for non-directional views")
+        ],
         confidence: Confidence,
-        subject: Annotated[str | None, Field(description="Main entity of the thesis")] = None,
-        horizon: Annotated[str | None, Field(description="e.g. 12m, FY27")] = None,
+        subject: Annotated[
+            str | None,
+            Field(description="Main entity (ticker, name or id); it is watched for filings"),
+        ] = None,
+        horizon: Annotated[
+            str | None, Field(description="When the view should play out, e.g. 12m, FY27")
+        ] = None,
         assumption_claim_ids: Annotated[
-            list[str], Field(description="Claims the thesis depends on")
+            list[str],
+            Field(description="Claim ids that must stay true for the thesis to hold"),
         ] = [],  # noqa: B006
-        supporting_claim_ids: list[str] = [],  # noqa: B006
-        risk_claim_ids: list[str] = [],  # noqa: B006
+        supporting_claim_ids: Annotated[
+            list[str], Field(description="Claim ids that strengthen it but aren't essential")
+        ] = [],  # noqa: B006
+        risk_claim_ids: Annotated[
+            list[str], Field(description="Claim ids that argue against it")
+        ] = [],  # noqa: B006
         triggers: Annotated[
-            list[TriggerIn], Field(description="Conditions that would invalidate it")
+            list[TriggerIn],
+            Field(description="Conditions that would invalidate it; matching events raise alerts"),
         ] = [],  # noqa: B006
     ) -> Thesis:
-        """Record a conclusion and the claims it rests on."""
+        """Save a new investment thesis and the claims it rests on.
+
+        Record the claims first with `record_claim` and pass their ids. Torus uses
+        the assumptions, subject and triggers to decide which new filings and news
+        threaten the thesis and raise alerts. Returns the thesis with its id and
+        status (active). To change an existing thesis use `update_thesis`; to log
+        an idea you rejected use `record_rejected_hypothesis`."""
         thesis = store.record_thesis(
             title=title,
             statement=statement,
@@ -1033,7 +1097,10 @@ def build_server(tools: TorusTools) -> MCPServer:
     @server.tool(annotations=WRITE)
     @guard
     def unwatch(entity: EntityRef) -> WatchList:
-        """Remove a company from the explicit watchlist."""
+        """Stop watching a company you added with `watch`. Removes it from the
+        explicit watchlist only: a company that is the subject or a trigger entity
+        of an open thesis is still followed. Nothing in the graph is deleted.
+        Returns the updated watch list, as `list_watches` does."""
         store.unwatch_entity(tools.entity(entity).id)
         return _watch_list(store)
 

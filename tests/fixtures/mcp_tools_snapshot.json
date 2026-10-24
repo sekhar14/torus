@@ -4586,7 +4586,7 @@
       "properties": {
         "sessions": {
           "default": 1,
-          "description": "Most recent sessions",
+          "description": "How many recent sessions to list (1-10)",
           "maximum": 10,
           "minimum": 1,
           "title": "Sessions",
@@ -4692,7 +4692,8 @@
       },
       "properties": {
         "claim_type": {
-          "$ref": "#/$defs/ClaimType"
+          "$ref": "#/$defs/ClaimType",
+          "description": "fact or metric (must cite evidence_ids), inference (evidence or derived_from), forecast, or opinion"
         },
         "confidence": {
           "description": "0 = guess, 1 = certain",
@@ -4703,6 +4704,7 @@
         },
         "contradicting_evidence_ids": {
           "default": [],
+          "description": "Source ids from record_evidence that cut against it",
           "items": {
             "type": "string"
           },
@@ -4720,7 +4722,7 @@
         },
         "entities": {
           "default": [],
-          "description": "Entities the claim is about",
+          "description": "Entities the claim is about (ticker, name or id); they are resolved",
           "items": {
             "type": "string"
           },
@@ -4729,6 +4731,7 @@
         },
         "evidence_ids": {
           "default": [],
+          "description": "Supporting source ids from record_evidence",
           "items": {
             "type": "string"
           },
@@ -4745,7 +4748,7 @@
           "type": "array"
         },
         "text": {
-          "description": "One atomic, self-contained statement",
+          "description": "One atomic, self-contained statement, e.g. 'TSMC supplies over 90% of NVIDIA's data-center GPU wafers'",
           "title": "Text",
           "type": "string"
         },
@@ -4760,6 +4763,7 @@
             }
           ],
           "default": null,
+          "description": "When the statement became true (UTC if no zone); omit if unknown",
           "title": "Valid From"
         },
         "valid_to": {
@@ -4773,6 +4777,7 @@
             }
           ],
           "default": null,
+          "description": "When it stopped being true; omit if it still holds",
           "title": "Valid To"
         }
       },
@@ -5559,7 +5564,7 @@
       "properties": {
         "assumption_claim_ids": {
           "default": [],
-          "description": "Claims the thesis depends on",
+          "description": "Claim ids that must stay true for the thesis to hold",
           "items": {
             "type": "string"
           },
@@ -5583,11 +5588,12 @@
             }
           ],
           "default": null,
-          "description": "e.g. 12m, FY27",
+          "description": "When the view should play out, e.g. 12m, FY27",
           "title": "Horizon"
         },
         "risk_claim_ids": {
           "default": [],
+          "description": "Claim ids that argue against it",
           "items": {
             "type": "string"
           },
@@ -5595,9 +5601,11 @@
           "type": "array"
         },
         "stance": {
-          "$ref": "#/$defs/Stance"
+          "$ref": "#/$defs/Stance",
+          "description": "bullish, bearish, neutral, or n/a for non-directional views"
         },
         "statement": {
+          "description": "The investment view in one or two sentences",
           "title": "Statement",
           "type": "string"
         },
@@ -5611,11 +5619,12 @@
             }
           ],
           "default": null,
-          "description": "Main entity of the thesis",
+          "description": "Main entity (ticker, name or id); it is watched for filings",
           "title": "Subject"
         },
         "supporting_claim_ids": {
           "default": [],
+          "description": "Claim ids that strengthen it but aren't essential",
           "items": {
             "type": "string"
           },
@@ -5623,12 +5632,13 @@
           "type": "array"
         },
         "title": {
+          "description": "Short name, e.g. 'NVIDIA stays supply-bound through FY27'",
           "title": "Title",
           "type": "string"
         },
         "triggers": {
           "default": [],
-          "description": "Conditions that would invalidate it",
+          "description": "Conditions that would invalidate it; matching events raise alerts",
           "items": {
             "$ref": "#/$defs/TriggerIn"
           },
@@ -7786,6 +7796,7 @@
             }
           ],
           "default": null,
+          "description": "Only changes at or after this time (UTC if no zone); omit for all",
           "title": "Since"
         },
         "until": {
@@ -7799,6 +7810,7 @@
             }
           ],
           "default": null,
+          "description": "Only changes before this time (UTC if no zone); omit for now",
           "title": "Until"
         }
       },

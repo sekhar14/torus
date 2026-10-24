@@ -308,10 +308,15 @@ def register_workflow_tools(server: MCPServer, tools: TorusTools) -> None:
     @server.tool(annotations=READ_ONLY)
     @guard
     def recent_records(
-        sessions: Annotated[int, Field(ge=1, le=10, description="Most recent sessions")] = 1,
+        sessions: Annotated[
+            int, Field(ge=1, le=10, description="How many recent sessions to list (1-10)")
+        ] = 1,
     ) -> RecentRecords:
-        """What the most recent research sessions recorded, newest first, and which
-        records can still be undone."""
+        """List what the most recent research sessions recorded (claims, theses,
+        relations, sources, ruled-out ideas), newest session first, with each
+        session's id and whether each record can still be undone. Read-only. Use it
+        when the user asks what Torus saved, then pass the session id and records
+        to `undo_records` to revert the unwanted ones."""
         return RecentRecords(sessions=recent(store, sessions))
 
     @server.tool(annotations=WRITE)
